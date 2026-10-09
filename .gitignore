@@ -1,3 +1,7 @@
 .venv
 .idea
 *.iml
+logs/
+*.db
+*.pyc
+__pycache__

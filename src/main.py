@@ -1,0 +1,24 @@
+import sys
+
+from database.connection import DatabaseConnection
+from utils.logger import AppLogger
+
+
+def bootstrap_application() -> None:
+    logger = AppLogger.get_instance()
+    logger.log_info("Logger successfully started")
+    logger.log_info("Fitness Club Management System is starting...")
+
+    try:
+        db = DatabaseConnection().get_instance()
+        logger.log_info("Initializing database schema...")
+        db.init_db()
+    except Exception as e:
+        logger.log_error("Application bootstrap failed with critical error: %s", e)
+        sys.exit(1)
+
+    logger.log_info("Database layers ready. Starting graphical user interface (PySide6)...")
+
+
+if __name__ == "__main__":
+    bootstrap_application()

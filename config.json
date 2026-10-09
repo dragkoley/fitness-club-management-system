@@ -1,8 +1,8 @@
 {
   "DATABASE": {
-    "FILE_NAME": "fitness_club.db"
+    "RELATIVE_PATH": "fitness_club.db"
   },
   "LOGGING": {
-    "FILE_NAME": "fitness_club.log"
+    "RELATIVE_PATH": "logs/fitness_club.log"
   }
 }
