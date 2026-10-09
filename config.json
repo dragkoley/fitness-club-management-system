@@ -1,0 +1,8 @@
+{
+  "DATABASE": {
+    "FILE_NAME": "fitness_club.db"
+  },
+  "LOGGING": {
+    "FILE_NAME": "fitness_club.log"
+  }
+}
