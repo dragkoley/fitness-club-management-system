@@ -5,6 +5,7 @@ from database.orm_models import MemberORM
 from services.factories import SubscriptionIssuer, PaymentReceipt
 from services.payment import PaymentMethod
 from services.pricing import Discount
+from utils.decorators import monitor_action
 from utils.logger import AppLogger
 
 
@@ -12,6 +13,7 @@ class ClubManager:
     def __init__(self):
         self._db = DatabaseConnection.get_instance()
 
+    @monitor_action
     def sell_subscription(self, member_id: int, sub_issuer: SubscriptionIssuer, discount_policy: Discount,
                           payment_method: PaymentMethod, receipt_factory: PaymentReceipt) -> bool:
         logger = AppLogger().get_instance()
