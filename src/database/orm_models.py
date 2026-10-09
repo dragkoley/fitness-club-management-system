@@ -1,3 +1,5 @@
+from datetime import date
+
 from sqlalchemy import Integer, String, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,7 +11,7 @@ class MemberORM(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    birth_date: Mapped[Date] = mapped_column(Date, nullable=False)
+    birth_date: Mapped[date] = mapped_column(Date, nullable=False)
     phone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
 
     subscription_id: Mapped[int | None] = mapped_column(
@@ -110,19 +112,19 @@ class VisitORM(Base):
 class SubscriptionORM(Base):
     __tablename__ = "subscriptions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     type: Mapped[str] = mapped_column(String(100), nullable=False)
-    start_date: Mapped[Date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[Date] = mapped_column(Date, nullable=False)
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date] = mapped_column(Date, nullable=False)
     price: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="subscription", uselist=False)
-    payments: Mapped[list[PaymentORM]] = relationship("PaymentORM", back_populates="subscription")
+    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="subscription", uselist=False, init=False)
+    payments: Mapped[list[PaymentORM]] = relationship("PaymentORM", back_populates="subscription", init=False)
 
 
 class PaymentORM(Base):
     __tablename__ = "payments"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     value: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -134,8 +136,8 @@ class PaymentORM(Base):
         nullable=False
     )
 
-    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="payments")
-    subscription: Mapped[SubscriptionORM] = relationship("SubscriptionORM", back_populates="payments")
+    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="payments", init=False)
+    subscription: Mapped[SubscriptionORM] = relationship("SubscriptionORM", back_populates="payments", init=False)
 
 
 class LockerORM(Base):

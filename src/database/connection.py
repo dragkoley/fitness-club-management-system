@@ -1,11 +1,11 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session, MappedAsDataclass
 
 from config.settings import settings
 from utils.logger import AppLogger
 
 
-class Base(DeclarativeBase):
+class Base(MappedAsDataclass, DeclarativeBase):
     pass
 
 
@@ -34,11 +34,11 @@ class DatabaseConnection:
         logger.log_info("Opening database connection")
         return self.SessionFactory()
 
-    def close_session(self, session: Session, success: bool) -> None:
+    def close_session(self, session: Session, status: bool) -> None:
         logger = AppLogger.get_instance()
 
         try:
-            if success:
+            if status:
                 session.commit()
                 logger.log_info("Transaction committed successfully")
             else:
