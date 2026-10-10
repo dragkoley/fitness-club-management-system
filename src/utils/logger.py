@@ -1,15 +1,13 @@
 import logging
 import sys
 
-from config.settings import settings
-
 
 class AppLogger:
     _instance = None
 
     def __init__(self):
         if AppLogger._instance is not None:
-            raise Exception('This class is a singleton. Use method get_instance()')
+            raise Exception('Class AppLogger is a singleton. Use method get_instance()')
 
         self._logger = logging.getLogger("FitnessClubLogger")
         self._logger.setLevel(logging.INFO)

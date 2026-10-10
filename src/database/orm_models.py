@@ -3,13 +3,13 @@ from datetime import date
 from sqlalchemy import Integer, String, Date, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database.connection import Base
+from src.database.connection import Base
 
 
 class MemberORM(Base):
     __tablename__ = "members"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
     birth_date: Mapped[date] = mapped_column(Date, nullable=False)
     phone: Mapped[str] = mapped_column(String(20), nullable=False, unique=True)
@@ -17,33 +17,38 @@ class MemberORM(Base):
     subscription_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("subscriptions.id", ondelete="CASCADE"),
-        nullable=True
+        nullable=True, init=False
     )
 
     visit_entries: Mapped[list[VisitORM]] = relationship(
         "VisitORM",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        init=False
     )
     locker: Mapped[LockerORM | None] = relationship(
         "LockerORM",
         back_populates="member",
-        uselist=False
+        uselist=False,
+        init=False
     )
     subscription: Mapped[SubscriptionORM | None] = relationship(
         "SubscriptionORM",
         back_populates="member",
-        uselist=False
+        uselist=False,
+        init=False
     )
     payments: Mapped[list[PaymentORM]] = relationship(
         "PaymentORM",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        init=False
     )
     reviews: Mapped[list[ReviewORM]] = relationship(
         "ReviewORM",
         back_populates="member",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        init=False
     )
 
 

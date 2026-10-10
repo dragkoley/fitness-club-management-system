@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session, MappedAsDataclass
 
 from config.settings import settings
-from utils.logger import AppLogger
+from src.utils.logger import AppLogger
 
 
 class Base(MappedAsDataclass, DeclarativeBase):

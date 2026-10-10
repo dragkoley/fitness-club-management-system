@@ -1,23 +1,45 @@
 from sqlalchemy.orm import Session
 
-from database.connection import DatabaseConnection
-from database.orm_models import MemberORM
-from services.factories import SubscriptionIssuer, PaymentReceipt
-from services.payment import PaymentMethod
-from services.pricing import Discount
-from utils.decorators import monitor_action
-from utils.logger import AppLogger
+from src.database.connection import DatabaseConnection
+from src.database.orm_models import MemberORM
+from src.services.factories import MonthlySubscriptionIssuer, YearSubscriptionIssuer, \
+    CardPaymentReceipt, CashPaymentReceipt
+from src.services.payment import CashPayment, CardPayment
+from src.services.pricing import NoDiscount, StudentDiscount, CorporateDiscount
+from src.utils.decorators import monitor_action
+from src.utils.logger import AppLogger
 
 
 class ClubManager:
     def __init__(self):
         self._db = DatabaseConnection.get_instance()
+        self._logger = AppLogger.get_instance()
+
+        self._subscription_issuers = {
+            "monthly": MonthlySubscriptionIssuer,
+            "year": YearSubscriptionIssuer
+        }
+
+        self._receipt_factories = {
+            "card": CardPaymentReceipt,
+            "cash": CashPaymentReceipt
+        }
+
+        self._payment_methods = {
+            "cash": CashPayment,
+            "card": CardPayment
+        }
+
+        self._discount_policies = {
+            "none": NoDiscount,
+            "student": StudentDiscount,
+            "corporate": CorporateDiscount
+        }
 
     @monitor_action
-    def sell_subscription(self, member_id: int, sub_issuer: SubscriptionIssuer, discount_policy: Discount,
-                          payment_method: PaymentMethod, receipt_factory: PaymentReceipt) -> bool:
-        logger = AppLogger().get_instance()
-        logger.log_info("[Facade] Processing subscription sale for member ID: %s", member_id)
+    def sell_subscription(self, member_id: int, subscription_type: str,
+                          payment_method: str, discount_type: str = "none") -> bool:
+        self._logger.log_info("[Facade] Processing subscription sale for member ID: %s", member_id)
 
         session: Session = self._db.open_session()
         status: bool = False
@@ -25,11 +47,19 @@ class ClubManager:
         try:
             member = session.get(MemberORM, member_id)
             if not member:
-                logger.log_warning("[Facade] Aborted. Member with ID: %s not found in DB", member_id)
+                self._logger.log_warning("[Facade] Aborted. Member with ID: %s not found in DB", member_id)
                 return status
 
-            new_subscription = sub_issuer.issue(discount_policy)
-            is_approved = payment_method.process_transaction(new_subscription.price)
+            issuer = self._subscription_issuers[subscription_type]()
+            payment = self._payment_methods[payment_method]()
+            receipt_factory = self._receipt_factories[payment_method]()
+            discount = self._discount_policies[discount_type]()
+
+            new_subscription = issuer.issue(discount)
+            session.add(new_subscription)
+            session.flush()
+
+            is_approved = payment.process_transaction(new_subscription.price)
 
             new_payment = receipt_factory.create_record(
                 amount=new_subscription.price,
@@ -41,21 +71,20 @@ class ClubManager:
             session.add(new_payment)
 
             if not is_approved:
-                logger.log_warning("[Facade] Sale rejected due to transaction failure for member ID: %s", member_id)
-                return status
+                self._logger.log_warning("[Facade] Sale rejected due to transaction failure for member ID: %s",
+                                         member_id)
+                return False
 
-            session.add(new_subscription)
-            session.flush()
             member.subscription_id = new_subscription.id
 
-            logger.log_info("[Facade] Subscription successfully assigned to member ID: %s", member_id)
+            self._logger.log_info("[Facade] Subscription successfully assigned to member ID: %s", member_id)
             status = True
-            return status
 
         except Exception as e:
-            logger.log_error("[Facade] Failed to process subscription due to exception: %s", e)
+            self._logger.log_error("[Facade] Failed to process subscription due to exception: %s", e)
             status = False
-            return status
 
         finally:
             self._db.close_session(session, status)
+
+        return status

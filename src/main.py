@@ -1,7 +1,7 @@
 import sys
 
-from database.connection import DatabaseConnection
-from utils.logger import AppLogger
+from src.database.connection import DatabaseConnection
+from src.utils.logger import AppLogger
 
 
 def bootstrap_application() -> None:
@@ -10,7 +10,7 @@ def bootstrap_application() -> None:
     logger.log_info("Fitness Club Management System is starting...")
 
     try:
-        db = DatabaseConnection().get_instance()
+        db = DatabaseConnection.get_instance()
         logger.log_info("Initializing database schema...")
         db.init_db()
     except Exception as e:
