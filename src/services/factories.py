@@ -9,7 +9,7 @@ from src.utils.logger import AppLogger
 class SubscriptionIssuer(ABC):
     @abstractmethod
     def issue(self, discount_policy: Discount) -> SubscriptionORM:
-        pass
+        raise NotImplementedError()
 
 
 class MonthlySubscriptionIssuer(SubscriptionIssuer):
@@ -49,7 +49,7 @@ class YearSubscriptionIssuer(SubscriptionIssuer):
 class PaymentReceipt(ABC):
     @abstractmethod
     def create_record(self, amount: int, member_id: int, subscription_id: int, is_approved: bool) -> PaymentORM:
-        pass
+        raise NotImplementedError()
 
 
 class CashPaymentReceipt(PaymentReceipt):

@@ -1,14 +1,15 @@
 from abc import ABC, abstractmethod
+from datetime import date
 
-from services.club_manager import ClubManager
-from utils.logger import AppLogger
+from src.services.club_manager import ClubManager
+from src.utils.logger import AppLogger
 
 
 class Command(ABC):
 
     @abstractmethod
     def execute(self) -> bool:
-        pass
+        raise NotImplementedError()
 
 
 class ExecuteSubscriptionSale(Command):
@@ -29,4 +30,21 @@ class ExecuteSubscriptionSale(Command):
             subscription_type=self._subscription_type,
             payment_method=self._payment_method,
             discount_type=self._discount_type
+        )
+
+
+class ExecuteMemberRegistration(Command):
+    def __init__(self, manager: ClubManager, full_name: str, birth_date: date, phone: str) -> None:
+        self._manager = manager
+        self._full_name = full_name
+        self._birth_date = birth_date
+        self._phone = phone
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering member (%s) registration", self._full_name)
+        return self._manager.register_member(
+            full_name=self._full_name,
+            birth_date=self._birth_date,
+            phone=self._phone
         )

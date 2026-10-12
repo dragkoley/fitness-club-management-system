@@ -6,7 +6,7 @@ from src.utils.logger import AppLogger
 class Discount(ABC):
     @abstractmethod
     def apply(self, base_price: int) -> int:
-        pass
+        raise NotImplementedError()
 
 
 class NoDiscount(Discount):

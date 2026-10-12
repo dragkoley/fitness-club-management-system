@@ -6,7 +6,7 @@ from src.utils.logger import AppLogger
 class PaymentMethod(ABC):
     @abstractmethod
     def process_transaction(self, amount: int) -> bool:
-        pass
+        raise NotImplementedError()
 
 
 class CashPayment(PaymentMethod):

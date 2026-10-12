@@ -1,3 +1,5 @@
+from datetime import date
+
 from sqlalchemy.orm import Session
 
 from src.database.connection import DatabaseConnection
@@ -82,6 +84,38 @@ class ClubManager:
 
         except Exception as e:
             self._logger.log_error("[Facade] Failed to process subscription due to exception: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+    @monitor_action
+    def register_member(self, full_name: str, birth_date: date, phone: str ) -> bool:
+        self._logger.log_info("[Facade] Registering member with full name: %s", full_name)
+
+        session: Session = self._db.open_session()
+        status: bool = False
+
+        try:
+            existing_member = session.query(MemberORM).filter_by(phone=phone.strip()).first()
+            if existing_member:
+                self._logger.log_warning("[Facade] Registration aborted. Phone %s already exists", phone)
+                return status
+
+            new_member = MemberORM(
+                full_name=full_name.strip(),
+                birth_date=birth_date,
+                phone=phone.strip()
+            )
+
+            session.add(new_member)
+            self._logger.log_info("[Facade] Member %s successfully created in session context", full_name)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to register member: %s", e)
             status = False
 
         finally:
