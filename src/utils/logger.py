@@ -17,10 +17,10 @@ class AppLogger:
         # file_handler = logging.FileHandler(settings.log_file_path, encoding="utf-8")
         # file_handler.setFormatter(formatter)
         # self._logger.addHandler(file_handler)
-
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        self._logger.addHandler(console_handler)
+        if not self._logger.handlers:
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            self._logger.addHandler(console_handler)
 
     @staticmethod
     def get_instance() -> AppLogger:

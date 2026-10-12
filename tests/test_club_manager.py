@@ -4,6 +4,7 @@ from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.services.commands import ExecuteSubscriptionSale
 from src.database.connection import DatabaseConnection
 from src.database.orm_models import MemberORM, SubscriptionORM, PaymentORM
 from src.services.club_manager import ClubManager
@@ -39,8 +40,19 @@ class ClubManagerSubscriptionSaleTestCase(unittest.TestCase):
 
     def test_sell_monthly_subscription_with_student_discount_via_card(self) -> None:
         manager = ClubManager()
-        result: bool = manager.sell_subscription(
-            self.member_id, subscription_type="monthly", payment_method="card", discount_type="student")
+
+        sale_command = ExecuteSubscriptionSale(
+            manager=manager,
+            member_id=self.member_id,
+            subscription_type="monthly",
+            payment_method="card",
+            discount_type="student"
+        )
+
+        result: bool = sale_command.execute()
+
+        # result: bool = manager.sell_subscription(
+        #     self.member_id, subscription_type="monthly", payment_method="card", discount_type="student")
 
         self.assertTrue(result, "[Test] Transaction status must be True after selling the subscription")
         verification_session = self.db.open_session()
