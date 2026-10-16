@@ -55,7 +55,7 @@ class MemberORM(Base):
 class TrainerORM(Base):
     __tablename__ = "trainers"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
     phone: Mapped[str] = mapped_column(String(20), nullable=False)
     specialty: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -64,14 +64,15 @@ class TrainerORM(Base):
     schedule_entries: Mapped[list[ScheduleORM]] = relationship(
         "ScheduleORM",
         back_populates="trainer",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        init=False
     )
 
 
 class TrainingORM(Base):
     __tablename__ = "trainings"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[str] = mapped_column(String(100), nullable=False)
     duration_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -79,39 +80,41 @@ class TrainingORM(Base):
     schedule_entries: Mapped[list[ScheduleORM]] = relationship(
         "ScheduleORM",
         back_populates="training",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        init=False
     )
     visit_entries: Mapped[list[VisitORM]] = relationship(
         "VisitORM",
         back_populates="training",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        init=False
     )
 
 
 class ScheduleORM(Base):
     __tablename__ = "schedule"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     date: Mapped[Date] = mapped_column(Date, nullable=False)
 
     trainer_id: Mapped[int] = mapped_column(Integer, ForeignKey("trainers.id", ondelete="CASCADE"), nullable=False)
     training_id: Mapped[int] = mapped_column(Integer, ForeignKey("trainings.id", ondelete="CASCADE"), nullable=False)
 
-    trainer: Mapped[TrainerORM] = relationship("TrainerORM", back_populates="schedule_entries")
-    training: Mapped[TrainingORM] = relationship("TrainingORM", back_populates="schedule_entries")
+    trainer: Mapped[TrainerORM] = relationship("TrainerORM", back_populates="schedule_entries", init=False)
+    training: Mapped[TrainingORM] = relationship("TrainingORM", back_populates="schedule_entries", init=False)
 
 
 class VisitORM(Base):
     __tablename__ = "visits"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     date: Mapped[Date] = mapped_column(Date, nullable=False)
 
     training_id: Mapped[int] = mapped_column(Integer, ForeignKey("trainings.id", ondelete="CASCADE"), nullable=False)
     member_id: Mapped[int] = mapped_column(Integer, ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
 
-    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="visit_entries")
-    training: Mapped[TrainingORM] = relationship("TrainingORM", back_populates="visit_entries")
+    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="visit_entries", init=False)
+    training: Mapped[TrainingORM] = relationship("TrainingORM", back_populates="visit_entries", init=False)
 
 
 class SubscriptionORM(Base):
