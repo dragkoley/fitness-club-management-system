@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from src.database.connection import DatabaseConnection
 from src.database.orm_models import MemberORM, TrainerORM, TrainingORM, ScheduleORM, VisitORM
@@ -123,6 +123,66 @@ class ClubManager:
 
         return status
 
+    def delete_member(self, member_id: int) -> bool:
+        self._logger.log_info("[Facade] Deleting member with ID: %s", member_id)
+
+        session = self._db.open_session()
+        status: bool = False
+
+        try:
+            member = session.get(MemberORM, member_id)
+            if not member:
+                self._logger.log_warning("[Facade] Aborted. Member ID: %s not found in db", member_id)
+                return status
+
+            session.delete(member)
+            self._logger.log_info("[Facade] Member %s successfully deleted in session context", member_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete member: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+    def update_member(self, member_id: int, full_name: str, phone: str) -> bool:
+        self._logger.log_info("[Facade] Updating member with ID: %s", member_id)
+
+        session = self._db.open_session()
+        status = False
+
+        try:
+            cleaned_phone = phone.strip()
+            existing_phone_owner = session.query(MemberORM).filter(
+                MemberORM.phone == cleaned_phone, MemberORM.id != member_id).first()
+
+            if existing_phone_owner:
+                self._logger.log_warning("[Facade] Update aborted. Phone %s already exists", cleaned_phone)
+                return status
+
+            member = session.get(MemberORM, member_id)
+            if not member:
+                self._logger.log_warning("[Facade] Member with ID: %s not found in db", member_id)
+                return status
+
+            member.full_name = full_name
+            member.phone = cleaned_phone
+
+            self._logger.log_info("[Facade] Member %s successfully updated in session context", member_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to update member: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
     def register_trainer(self, full_name: str, phone: str, speciality: str, experience: str) -> bool:
         self._logger.log_info("[Facade] Registering trainer with full name: %s", full_name)
 
@@ -230,8 +290,9 @@ class ClubManager:
                 self._logger.log_warning("[Facade] Booking rejected. Schedule with ID %s is fully booked", schedule_id)
                 return status
 
-            member_visit_count = session.query(VisitORM).filter_by(member_id=member_id, date=schedule_entry.date, training_id=schedule_entry.training_id).count()
-            if member_visit_count  >= 1:
+            member_visit_count = session.query(VisitORM).filter_by(member_id=member_id, date=schedule_entry.date,
+                                                                   training_id=schedule_entry.training_id).count()
+            if member_visit_count >= 1:
                 self._logger.log_warning("[Facade] Booking rejected. Member already booked this training")
                 return status
 

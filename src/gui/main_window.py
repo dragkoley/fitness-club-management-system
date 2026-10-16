@@ -1,17 +1,20 @@
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
-    QHeaderView, QTableWidgetItem, QMessageBox
+    QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit
 
 from src.database.connection import DatabaseConnection
 from src.database.orm_models import MemberORM, TrainerORM, ScheduleORM, VisitORM, TrainingORM
 from src.gui.dialogs.create_schedule import CreateScheduleDialog
 from src.gui.dialogs.create_training import CreateTrainingDialog
+from src.gui.dialogs.member_edit import MemberEditDialog
 from src.gui.dialogs.member_registration import MemberRegistrationDialog
 from src.gui.dialogs.trainer_registration import TrainerRegistrationDialog
 from src.services.club_manager import ClubManager
-from src.services.commands import ExecuteSubscriptionSale, ExecuteTrainingBooking
+from src.services.commands import ExecuteSubscriptionSale, ExecuteTrainingBooking, ExecuteMemberDeletion
 from src.utils.logger import AppLogger
 
+
+# TODO: create Manage Subscription Dialog
 
 class FitnessClubMainWindow(QMainWindow):
     def __init__(self):
@@ -31,27 +34,51 @@ class FitnessClubMainWindow(QMainWindow):
         self.main_layout.addWidget(self.tabs)
 
         self._init_members_tab()
-        self._init_trainers_tab()
+        self._init_booking_tab()
         self._init_schedule_tab()
+        self._init_trainers_tab()
         self._init_lockers_and_inventory_tab()
         self._init_analytics_tab()
-        self._init_booking_tab()
 
         self._logger.log_info("[GUI] Main window initialized successfully")
 
     def _init_members_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
 
-        button_layout = QHBoxLayout()
-        self.btn_refresh = QPushButton("Refresh")
-        self.btn_sell_sub = QPushButton("Sell subscription")
+        action_bar_layout = QHBoxLayout()
+
         self.btn_register_member = QPushButton("Register Member")
+        self.btn_edit_member = QPushButton("Edit Member Profile")
+        self.btn_delete_member = QPushButton("Delete Member")
+        self.btn_manage_sub = QPushButton("Manage subscription")
+        self.btn_refresh_member_tab = QPushButton("Refresh")
 
-        button_layout.addWidget(self.btn_refresh)
-        button_layout.addWidget(self.btn_sell_sub)
-        button_layout.addWidget(self.btn_register_member)
-        layout.addLayout(button_layout)
+        self.btn_delete_member.setStyleSheet("color: red")
+        self.btn_edit_member.setStyleSheet("color: green")
+        self.btn_register_member.setStyleSheet("color: green")
+        self.btn_manage_sub.setStyleSheet("color: orange")
+
+        action_bar_layout.addWidget(self.btn_refresh_member_tab)
+        action_bar_layout.addSpacing(30)
+        action_bar_layout.addWidget(self.btn_register_member)
+        action_bar_layout.addWidget(self.btn_edit_member)
+        action_bar_layout.addWidget(self.btn_delete_member)
+        action_bar_layout.addSpacing(30)
+        action_bar_layout.addWidget(self.btn_manage_sub)
+        action_bar_layout.addStretch()
+
+        main_layout.addLayout(action_bar_layout)
+
+        filter_layout = QHBoxLayout()
+        self.edit_search = QLineEdit()
+        self.edit_search.setPlaceholderText("Quick search by name or phone number...")
+        self.edit_search.setStyleSheet("padding: 5px; font-size: 14px")
+        filter_layout.addWidget(self.edit_search)
+
+        main_layout.addLayout(filter_layout)
 
         self.member_table = QTableWidget()
         self.member_table.setColumnCount(6)
@@ -60,15 +87,116 @@ class FitnessClubMainWindow(QMainWindow):
         self.member_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.member_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.member_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        layout.addWidget(self.member_table)
 
-        self.btn_refresh.clicked.connect(self.load_members_from_db)
-        self.btn_sell_sub.clicked.connect(self.on_sell_subscription_button_click)
+        self.member_table.setAlternatingRowColors(True)
+        self.member_table.verticalHeader().setVisible(False)
+
+        main_layout.addWidget(self.member_table)
+
+        self.btn_refresh_member_tab.clicked.connect(self.on_refresh_members_tab_button_click)
         self.btn_register_member.clicked.connect(self.on_register_member_button_click)
+        self.btn_delete_member.clicked.connect(self.on_delete_member_button_click)
+        self.btn_manage_sub.clicked.connect(self.on_sell_subscription_button_click)
+        self.edit_search.textChanged.connect(self.on_member_search_text_changed)
+        self.btn_edit_member.clicked.connect(self.on_edit_member_button_click)
 
-        self.tabs.addTab(tab, "Reception and Clients")
-
+        self.tabs.addTab(tab, "Members")
         self.load_members_from_db()
+
+    def on_refresh_members_tab_button_click(self) -> None:
+        self.load_members_from_db(target_table=self.member_table)
+
+    def on_delete_member_button_click(self) -> None:
+        current_row = self.member_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Please, select a member from table to delete.")
+
+        member_id = int(self.member_table.item(current_row, 0).text())
+        member_name = self.member_table.item(current_row, 1).text()
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirmation",
+            f"Are you sure you want to delete member '{member_name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            deletion_command = ExecuteMemberDeletion(manager=self._manager, member_id=member_id)
+
+            if deletion_command.execute():
+                QMessageBox.information(self, "Success",
+                                        f"Member '{member_name}' was successfully deleted from the database.")
+                self.on_refresh_members_tab_button_click()
+
+            else:
+                QMessageBox.critical(self, "Error", f"Database transaction failed. Unable to delete selected member.")
+
+    def on_sell_subscription_button_click(self):
+        current_row = self.member_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Error", "Please, select a member")
+            return
+
+        member_id = int(self.member_table.item(current_row, 0).text())
+
+        sale_command = ExecuteSubscriptionSale(
+            manager=self._manager,
+            member_id=member_id,
+            subscription_type="monthly",
+            payment_method="card",
+            discount_type="student"
+        )
+
+        success = sale_command.execute()
+        if success:
+            self.load_members_from_db()
+
+    def on_register_member_button_click(self):
+        dialog = MemberRegistrationDialog(parent=self)
+        if dialog.exec():
+            self.load_members_from_db()
+
+    def on_edit_member_button_click(self):
+        current_row = self.member_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Error", "Please, select a member")
+            return
+
+        member_id = int(self.member_table.item(current_row, 0).text())
+        current_name = self.member_table.item(current_row, 1).text()
+        current_phone = self.member_table.item(current_row, 3).text()
+
+        dialog = MemberEditDialog(
+            member_id=member_id,
+            current_name=current_name,
+            current_phone=current_phone,
+            parent=self
+        )
+
+        if dialog.exec():
+            self.on_refresh_members_tab_button_click()
+
+    def on_member_search_text_changed(self, search_text: str) -> None:
+        search_text = search_text.strip().lower()
+
+        for row in range(self.member_table.rowCount()):
+            item_name = self.member_table.item(row, 1)
+            item_phone = self.member_table.item(row, 3)
+
+            name_text = item_name.text().lower() if item_name else ""
+            phone_text = item_phone.text().lower() if item_phone else ""
+
+            if not search_text or search_text in name_text or search_text in phone_text:
+                self.member_table.setRowHidden(row, False)
+            else:
+                self.member_table.setRowHidden(row, True)
+
+        self._logger.log_info("[GUI] Real-time search rendered for %s", search_text)
 
     def _init_trainers_tab(self):
         tab = QWidget()
@@ -78,7 +206,7 @@ class FitnessClubMainWindow(QMainWindow):
         self.btn_refresh_trainers = QPushButton("Refresh")
         self.btn_register_trainer = QPushButton("Register Trainer")
 
-        button_layout.addWidget(self.btn_refresh)
+        button_layout.addWidget(self.btn_refresh_trainers)
         button_layout.addWidget(self.btn_register_trainer)
         layout.addLayout(button_layout)
 
@@ -91,7 +219,7 @@ class FitnessClubMainWindow(QMainWindow):
         self.trainer_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         layout.addWidget(self.trainer_table)
 
-        self.btn_refresh_trainers.clicked.connect(self.load_trainers_from_db)
+        self.btn_refresh_trainers.clicked.connect(self.on_refresh_members_tab_button_click)
         self.btn_register_trainer.clicked.connect(self.on_register_trainer_button_click)
 
         self.tabs.addTab(tab, "Trainers")
@@ -295,7 +423,6 @@ class FitnessClubMainWindow(QMainWindow):
         finally:
             self._db.close_session(session, status=True)
 
-
     def _init_analytics_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -360,32 +487,6 @@ class FitnessClubMainWindow(QMainWindow):
 
         finally:
             self._db.close_session(session, status=True)
-
-    def on_sell_subscription_button_click(self):
-        current_row = self.member_table.currentRow()
-
-        if current_row == -1:
-            QMessageBox.warning(self, "Error", "Please, select a member")
-            return
-
-        member_id = int(self.member_table.item(current_row, 0).text())
-
-        sale_command = ExecuteSubscriptionSale(
-            manager=self._manager,
-            member_id=member_id,
-            subscription_type="monthly",
-            payment_method="card",
-            discount_type="student"
-        )
-
-        success = sale_command.execute()
-        if success:
-            self.load_members_from_db()
-
-    def on_register_member_button_click(self):
-        dialog = MemberRegistrationDialog(parent=self)
-        if dialog.exec():
-            self.load_members_from_db()
 
     def on_register_trainer_button_click(self):
         dialog = TrainerRegistrationDialog(parent=self)

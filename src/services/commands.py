@@ -68,6 +68,7 @@ class ExecuteTrainerRegistration(Command):
             phone=self._phone
         )
 
+
 class ExecuteTrainingCreation(Command):
     def __init__(self, manager: ClubManager, name: str, training_type: str, duration_minutes: int) -> None:
         self._manager = manager
@@ -83,6 +84,7 @@ class ExecuteTrainingCreation(Command):
             training_type=self._training_type,
             duration_minutes=self._duration_minutes
         )
+
 
 class ExecuteScheduleCreation(Command):
     def __init__(self, manager: ClubManager, training_date: date, trainer_id: int, training_id: int) -> None:
@@ -100,6 +102,7 @@ class ExecuteScheduleCreation(Command):
             training_id=self._training_id
         )
 
+
 class ExecuteTrainingBooking(Command):
     def __init__(self, manager: ClubManager, member_id: int, schedule_id: int) -> None:
         self._manager = manager
@@ -112,4 +115,34 @@ class ExecuteTrainingBooking(Command):
         return self._manager.book_training(
             member_id=self._member_id,
             schedule_id=self._schedule_id
+        )
+
+
+class ExecuteMemberDeletion(Command):
+    def __init__(self, manager: ClubManager, member_id: int) -> None:
+        self._manager = manager
+        self._member_id = member_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering member deletion for member ID: %s", self._member_id)
+        return self._manager.delete_member(
+            member_id=self._member_id
+        )
+
+
+class ExecuteMemberUpdate(Command):
+    def __init__(self, manager: ClubManager, member_id: int, full_name: str, phone: str) -> None:
+        self._manager = manager
+        self._member_id = member_id
+        self._full_name = full_name
+        self._phone = phone
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering update for member ID: %s", self._member_id)
+        return self._manager.update_member(
+            member_id=self._member_id,
+            full_name=self._full_name,
+            phone=self._phone
         )
