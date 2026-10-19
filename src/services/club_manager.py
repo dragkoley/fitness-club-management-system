@@ -148,7 +148,7 @@ class ClubManager:
 
         return status
 
-    def update_member(self, member_id: int, full_name: str, phone: str) -> bool:
+    def update_member(self, member_id: int, full_name: str, phone: str, birth_date: date) -> bool:
         self._logger.log_info("[Facade] Updating member with ID: %s", member_id)
 
         session = self._db.open_session()
@@ -170,6 +170,7 @@ class ClubManager:
 
             member.full_name = full_name
             member.phone = cleaned_phone
+            member.birth_date = birth_date
 
             self._logger.log_info("[Facade] Member %s successfully updated in session context", member_id)
             status = True
@@ -182,6 +183,46 @@ class ClubManager:
             self._db.close_session(session, status)
 
         return status
+
+    def calculate_preview_price(self, subscription_type: str, discount_type: str) -> int:
+        issuer = self._subscription_issuers[subscription_type]()
+        discount = self._discount_policies[discount_type]()
+
+        temp_sub = issuer.issue(discount)
+        return temp_sub.price
+
+
+    def cancel_subscription(self, member_id: int) -> bool:
+        self._logger.log_info("[Facade] Canceling subscription with ID: %s", member_id)
+
+        session = self._db.open_session()
+        status = False
+
+        try:
+            member = session.get(MemberORM, member_id)
+            if not member:
+                self._logger.log_warning("[Facade] Aborted. Member ID: %s not found in db", member_id)
+                return status
+
+            if not member.subscription_id:
+                self._logger.log_warning("[Facade] Aborted. Member doesn't have a subscription")
+                return status
+
+            member.subscription_id = None
+            self._logger.log_info("[Facade] Subscription for member ID: %s successfully removed in session context", member_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to remove subscription: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+
+
 
     def register_trainer(self, full_name: str, phone: str, speciality: str, experience: str) -> bool:
         self._logger.log_info("[Facade] Registering trainer with full name: %s", full_name)

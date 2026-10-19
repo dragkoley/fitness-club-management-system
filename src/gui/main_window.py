@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
     QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit
@@ -6,15 +8,14 @@ from src.database.connection import DatabaseConnection
 from src.database.orm_models import MemberORM, TrainerORM, ScheduleORM, VisitORM, TrainingORM
 from src.gui.dialogs.create_schedule import CreateScheduleDialog
 from src.gui.dialogs.create_training import CreateTrainingDialog
-from src.gui.dialogs.member_edit import MemberEditDialog
-from src.gui.dialogs.member_registration import MemberRegistrationDialog
+from src.gui.dialogs.member_edit import MemberFormDialog
+from src.gui.dialogs.sell_subscription import SellSubscriptionDialog
 from src.gui.dialogs.trainer_registration import TrainerRegistrationDialog
 from src.services.club_manager import ClubManager
-from src.services.commands import ExecuteSubscriptionSale, ExecuteTrainingBooking, ExecuteMemberDeletion
+from src.services.commands import ExecuteSubscriptionCancellation
+from src.services.commands import ExecuteTrainingBooking, ExecuteMemberDeletion
 from src.utils.logger import AppLogger
 
-
-# TODO: create Manage Subscription Dialog
 
 class FitnessClubMainWindow(QMainWindow):
     def __init__(self):
@@ -54,12 +55,14 @@ class FitnessClubMainWindow(QMainWindow):
         self.btn_edit_member = QPushButton("Edit Member Profile")
         self.btn_delete_member = QPushButton("Delete Member")
         self.btn_manage_sub = QPushButton("Manage subscription")
+        self.btn_cancel_sub = QPushButton("Cancel subscription")
         self.btn_refresh_member_tab = QPushButton("Refresh")
 
         self.btn_delete_member.setStyleSheet("color: red")
         self.btn_edit_member.setStyleSheet("color: green")
         self.btn_register_member.setStyleSheet("color: green")
-        self.btn_manage_sub.setStyleSheet("color: orange")
+        self.btn_manage_sub.setStyleSheet("color: green")
+        self.btn_cancel_sub.setStyleSheet("color: red")
 
         action_bar_layout.addWidget(self.btn_refresh_member_tab)
         action_bar_layout.addSpacing(30)
@@ -68,6 +71,7 @@ class FitnessClubMainWindow(QMainWindow):
         action_bar_layout.addWidget(self.btn_delete_member)
         action_bar_layout.addSpacing(30)
         action_bar_layout.addWidget(self.btn_manage_sub)
+        action_bar_layout.addWidget(self.btn_cancel_sub)
         action_bar_layout.addStretch()
 
         main_layout.addLayout(action_bar_layout)
@@ -99,12 +103,49 @@ class FitnessClubMainWindow(QMainWindow):
         self.btn_manage_sub.clicked.connect(self.on_sell_subscription_button_click)
         self.edit_search.textChanged.connect(self.on_member_search_text_changed)
         self.btn_edit_member.clicked.connect(self.on_edit_member_button_click)
+        self.btn_cancel_sub.clicked.connect(self.on_cancel_sub_button_click)
 
         self.tabs.addTab(tab, "Members")
         self.load_members_from_db()
 
     def on_refresh_members_tab_button_click(self) -> None:
         self.load_members_from_db(target_table=self.member_table)
+
+    def on_cancel_sub_button_click(self) -> None:
+        current_row = self.member_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Please, select a member from table.")
+            return
+
+        member_id = int(self.member_table.item(current_row, 0).text())
+        member_name = self.member_table.item(current_row, 1).text()
+        sub_type = self.member_table.item(current_row, 4).text()
+
+        if sub_type == "No Subscription" or "":
+            QMessageBox.warning(self, "Warning", "Member doesn't have a subscription.")
+            return
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirmation",
+            f"Are you sure you want to cancel member '{member_name}' subscription?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteSubscriptionCancellation(
+                manager=self._manager,
+                member_id=member_id
+            )
+
+            if command.execute():
+                QMessageBox.information(self, "Success", "Member subscription canceled.")
+                self.on_refresh_members_tab_button_click()
+
+            else:
+                QMessageBox.critical(self, "Error", "Failed to cancel member subscription.")
 
     def on_delete_member_button_click(self) -> None:
         current_row = self.member_table.currentRow()
@@ -142,21 +183,19 @@ class FitnessClubMainWindow(QMainWindow):
             return
 
         member_id = int(self.member_table.item(current_row, 0).text())
+        member_name = self.member_table.item(current_row, 1).text()
 
-        sale_command = ExecuteSubscriptionSale(
-            manager=self._manager,
+        dialog = SellSubscriptionDialog(
             member_id=member_id,
-            subscription_type="monthly",
-            payment_method="card",
-            discount_type="student"
+            member_name=member_name,
+            parent=self
         )
 
-        success = sale_command.execute()
-        if success:
-            self.load_members_from_db()
+        if dialog.exec():
+            self.on_refresh_members_tab_button_click()
 
     def on_register_member_button_click(self):
-        dialog = MemberRegistrationDialog(parent=self)
+        dialog = MemberFormDialog(parent=self)
         if dialog.exec():
             self.load_members_from_db()
 
@@ -169,12 +208,16 @@ class FitnessClubMainWindow(QMainWindow):
 
         member_id = int(self.member_table.item(current_row, 0).text())
         current_name = self.member_table.item(current_row, 1).text()
+        date_str = self.member_table.item(current_row, 2).text()
         current_phone = self.member_table.item(current_row, 3).text()
 
-        dialog = MemberEditDialog(
+        current_birth_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        dialog = MemberFormDialog(
             member_id=member_id,
             current_name=current_name,
             current_phone=current_phone,
+            current_birth_date=current_birth_date,
             parent=self
         )
 

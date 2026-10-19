@@ -132,11 +132,12 @@ class ExecuteMemberDeletion(Command):
 
 
 class ExecuteMemberUpdate(Command):
-    def __init__(self, manager: ClubManager, member_id: int, full_name: str, phone: str) -> None:
+    def __init__(self, manager: ClubManager, member_id: int, full_name: str, phone: str, birth_date: date) -> None:
         self._manager = manager
         self._member_id = member_id
         self._full_name = full_name
         self._phone = phone
+        self._birth_date = birth_date
         self._logger = AppLogger.get_instance()
 
     def execute(self) -> bool:
@@ -144,5 +145,18 @@ class ExecuteMemberUpdate(Command):
         return self._manager.update_member(
             member_id=self._member_id,
             full_name=self._full_name,
-            phone=self._phone
+            phone=self._phone,
+            birth_date=self._birth_date
+        )
+
+class ExecuteSubscriptionCancellation(Command):
+    def __init__(self, manager: ClubManager, member_id: int) -> None:
+        self._manager = manager
+        self._member_id = member_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering cancellation for member ID: %s", self._member_id)
+        return self._manager.cancel_subscription(
+            member_id=self._member_id
         )
