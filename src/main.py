@@ -17,7 +17,7 @@ def bootstrap_application() -> None:
         db = DatabaseConnection.get_instance()
         logger.log_info("Initializing database schema...")
         db.init_db()
-        seed_initial_data()
+        # seed_initial_data()
     except Exception as e:
         logger.log_error("Application bootstrap failed with critical error: %s", e)
         sys.exit(1)

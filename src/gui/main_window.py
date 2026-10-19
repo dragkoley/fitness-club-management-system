@@ -12,7 +12,7 @@ from src.gui.dialogs.member_edit import MemberFormDialog
 from src.gui.dialogs.sell_subscription import SellSubscriptionDialog
 from src.gui.dialogs.trainer_registration import TrainerRegistrationDialog
 from src.services.club_manager import ClubManager
-from src.services.commands import ExecuteSubscriptionCancellation
+from src.services.commands import ExecuteSubscriptionCancellation, ExecuteBookingCancellation
 from src.services.commands import ExecuteTrainingBooking, ExecuteMemberDeletion
 from src.utils.logger import AppLogger
 
@@ -353,16 +353,24 @@ class FitnessClubMainWindow(QMainWindow):
 
     def _init_booking_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
 
         button_layout = QHBoxLayout()
         self.btn_book_training = QPushButton("Book Training")
         self.btn_refresh_booking_tab = QPushButton("Refresh")
+        self.btn_cancel_booking = QPushButton("Cancel Booking")
 
-        button_layout.addWidget(self.btn_book_training)
+        self.btn_book_training.setStyleSheet("color: green")
+        self.btn_cancel_booking.setStyleSheet("color: red")
+
         button_layout.addWidget(self.btn_refresh_booking_tab)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_book_training)
+        button_layout.addWidget(self.btn_cancel_booking)
         button_layout.addStretch()
-        layout.addLayout(button_layout)
+        main_layout.addLayout(button_layout)
 
         top_tables_layout = QHBoxLayout()
 
@@ -378,6 +386,9 @@ class FitnessClubMainWindow(QMainWindow):
         self.booking_member_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         top_tables_layout.addWidget(self.booking_member_table)
 
+        self.booking_member_table.setAlternatingRowColors(True)
+        self.booking_member_table.verticalHeader().setVisible(False)
+
         self.booking_schedule_table = QTableWidget()
         self.booking_schedule_table.setColumnCount(5)
         self.booking_schedule_table.setHorizontalHeaderLabels(
@@ -390,6 +401,9 @@ class FitnessClubMainWindow(QMainWindow):
         self.booking_schedule_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         top_tables_layout.addWidget(self.booking_schedule_table)
 
+        self.booking_schedule_table.setAlternatingRowColors(True)
+        self.booking_schedule_table.verticalHeader().setVisible(False)
+
         self.visit_table = QTableWidget()
         self.visit_table.setColumnCount(5)
         self.visit_table.setHorizontalHeaderLabels(
@@ -399,11 +413,15 @@ class FitnessClubMainWindow(QMainWindow):
         self.visit_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.visit_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
-        layout.addLayout(top_tables_layout)
-        layout.addWidget(self.visit_table)
+        self.visit_table.setAlternatingRowColors(True)
+        self.visit_table.verticalHeader().setVisible(False)
+
+        main_layout.addLayout(top_tables_layout)
+        main_layout.addWidget(self.visit_table)
 
         self.btn_book_training.clicked.connect(self.on_book_training_button_click)
         self.btn_refresh_booking_tab.clicked.connect(self.on_refresh_booking_tab_button_click)
+        self.btn_cancel_booking.clicked.connect(self.on_cancel_booking_button_click)
 
         self.tabs.addTab(tab, "Booking")
         self.on_refresh_booking_tab_button_click()
@@ -440,6 +458,43 @@ class FitnessClubMainWindow(QMainWindow):
             QMessageBox.information(self, "Success", f"Successfully booking {member_name} for {training_name}")
 
         self.on_refresh_booking_tab_button_click()
+
+    def on_cancel_booking_button_click(self):
+        current_row = self.visit_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Error", "Please select member in table first")
+            return
+
+        visit_id = int(self.visit_table.item(current_row, 0).text())
+        member_name = self.visit_table.item(current_row, 2).text()
+        training_name = self.visit_table.item(current_row, 3).text()
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirmation",
+            f"Are you sure you want to cancel booking {member_name} for {training_name}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteBookingCancellation(manager=self._manager, visit_id=visit_id)
+
+            if command.execute():
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    "Booking was successfully cancelled."
+                )
+                self.on_refresh_booking_tab_button_click()
+
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Failed to cancel booking."
+                )
 
     def load_visits_from_db(self, target_table: QTableWidget | None = None) -> None:
         if target_table is None:

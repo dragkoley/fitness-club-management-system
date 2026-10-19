@@ -117,6 +117,18 @@ class ExecuteTrainingBooking(Command):
             schedule_id=self._schedule_id
         )
 
+class ExecuteBookingCancellation(Command):
+    def __init__(self, manager: ClubManager, visit_id: int) -> None:
+        self._manager = manager
+        self._visit_id = visit_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering cancel booking for visit ID: %s", self._visit_id)
+        return self._manager.cancel_booking(
+            visit_id=self._visit_id
+        )
+
 
 class ExecuteMemberDeletion(Command):
     def __init__(self, manager: ClubManager, member_id: int) -> None:
@@ -160,3 +172,5 @@ class ExecuteSubscriptionCancellation(Command):
         return self._manager.cancel_subscription(
             member_id=self._member_id
         )
+
+

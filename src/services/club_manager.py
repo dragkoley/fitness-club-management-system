@@ -355,3 +355,29 @@ class ClubManager:
             self._db.close_session(session, status)
 
         return status
+
+    def cancel_booking(self, visit_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to cancel booking (Visit ID: %s)", visit_id)
+
+        session = self._db.open_session()
+        status = False
+
+        try:
+            visit = session.get(VisitORM, visit_id)
+            if not visit:
+                self._logger.log_warning("[Facade] Cancellation aborted. Visit ID %s not found in DB", visit_id)
+                return status
+
+            session.delete(visit)
+            self._logger.log_info("[Facade] Visit ID %s successfully deleted from session context", visit_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to cancel booking due to exception: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
