@@ -4,6 +4,7 @@ from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
     QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit
 
+from src.services.commands import ExecuteTrainerDeletion
 from src.services.commands import ExecuteScheduleDeletion
 from src.services.commands import ExecuteTrainingDeletion
 from src.database.connection import DatabaseConnection
@@ -12,7 +13,7 @@ from src.gui.dialogs.create_schedule import CreateScheduleDialog
 from src.gui.dialogs.create_training import CreateTrainingDialog
 from src.gui.dialogs.member_edit import MemberFormDialog
 from src.gui.dialogs.sell_subscription import SellSubscriptionDialog
-from src.gui.dialogs.trainer_registration import TrainerRegistrationDialog
+from src.gui.dialogs.trainer_edit import TrainerFormDialog
 from src.services.club_manager import ClubManager
 from src.services.commands import ExecuteSubscriptionCancellation, ExecuteBookingCancellation
 from src.services.commands import ExecuteTrainingBooking, ExecuteMemberDeletion
@@ -245,15 +246,27 @@ class FitnessClubMainWindow(QMainWindow):
 
     def _init_trainers_tab(self):
         tab = QWidget()
-        layout = QHBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
 
         button_layout = QHBoxLayout()
         self.btn_refresh_trainers = QPushButton("Refresh")
         self.btn_register_trainer = QPushButton("Register Trainer")
+        self.btn_remove_trainer = QPushButton("Remove Trainer")
+        self.btn_edit_trainer = QPushButton("Edit Trainer")
 
         button_layout.addWidget(self.btn_refresh_trainers)
+        button_layout.addSpacing(30)
         button_layout.addWidget(self.btn_register_trainer)
-        layout.addLayout(button_layout)
+        button_layout.addWidget(self.btn_edit_trainer)
+        button_layout.addWidget(self.btn_remove_trainer)
+        button_layout.addStretch()
+        main_layout.addLayout(button_layout)
+
+        self.btn_remove_trainer.setStyleSheet("color: red")
+        self.btn_register_trainer.setStyleSheet("color: green")
+        self.btn_edit_trainer.setStyleSheet("color: green")
 
         self.trainer_table = QTableWidget()
         self.trainer_table.setColumnCount(5)
@@ -262,14 +275,82 @@ class FitnessClubMainWindow(QMainWindow):
         self.trainer_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.trainer_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.trainer_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        layout.addWidget(self.trainer_table)
+        main_layout.addWidget(self.trainer_table)
+
+        self.trainer_table.verticalHeader().setVisible(False)
+        self.trainer_table.setAlternatingRowColors(True)
 
         self.btn_refresh_trainers.clicked.connect(self.on_refresh_members_tab_button_click)
         self.btn_register_trainer.clicked.connect(self.on_register_trainer_button_click)
+        self.btn_remove_trainer.clicked.connect(self.on_remove_trainer_button_click)
+        self.btn_edit_trainer.clicked.connect(self.on_edit_trainer_button_click)
 
         self.tabs.addTab(tab, "Trainers")
 
         self.load_trainers_from_db()
+
+    def on_edit_trainer_button_click(self):
+        current_row = self.trainer_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Error", "Please, select a trainer from the table to edit.")
+            return
+
+        trainer_id = int(self.trainer_table.item(current_row, 0).text())
+        current_name = self.trainer_table.item(current_row, 1).text()
+        current_phone = self.trainer_table.item(current_row, 2).text()
+        current_speciality = self.trainer_table.item(current_row, 3).text()
+        current_experience = self.trainer_table.item(current_row, 4).text()
+
+        dialog = TrainerFormDialog(
+            trainer_id=trainer_id,
+            current_name=current_name,
+            current_phone=current_phone,
+            current_speciality=current_speciality,
+            current_experience=current_experience,
+            parent=self
+        )
+
+        if dialog.exec():
+            self.load_trainers_from_db()
+            self.on_schedule_refresh_button_click()
+
+    def on_remove_trainer_button_click(self):
+        current_row = self.trainer_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Please, select a trainer from the table to delete.")
+            return
+
+        trainer_id = int(self.trainer_table.item(current_row, 0).text())
+        trainer_name = self.trainer_table.item(current_row, 1).text()
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Trainer Deletion",
+            f"Are you sure you want to remove trainer '{trainer_name}'?\n"
+            "This will automatically remove all scheduled sessions for this trainer!",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            deletion_command = ExecuteTrainerDeletion(manager=self._manager, trainer_id=trainer_id)
+
+            if deletion_command.execute():
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Trainer '{trainer_name}' was successfully removed from the system."
+                )
+                self.load_trainers_from_db()
+                self.on_schedule_refresh_button_click()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Failed to delete trainer. Database layer error."
+                )
 
     def _init_schedule_tab(self):
         tab = QWidget()
@@ -681,7 +762,7 @@ class FitnessClubMainWindow(QMainWindow):
             self._db.close_session(session, status=True)
 
     def on_register_trainer_button_click(self):
-        dialog = TrainerRegistrationDialog(parent=self)
+        dialog = TrainerFormDialog(parent=self)
         if dialog.exec():
             self.load_trainers_from_db()
 

@@ -251,6 +251,63 @@ class ClubManager:
 
         return status
 
+    def delete_trainer(self, trainer_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to delete trainer (ID: %s)", trainer_id)
+
+        session = self._db.open_session()
+        status = False
+
+        try:
+            trainer = session.get(TrainerORM, trainer_id)
+            if not trainer:
+                self._logger.log_warning("[Facade] Deletion aborted. Trainer ID %s not found in DB", trainer_id)
+                return status
+
+            session.delete(trainer)
+            self._logger.log_info("[Facade] Trainer ID %s successfully deleted from session context", trainer_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete trainer due to exception: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+
+    def update_trainer(self, trainer_id: int, full_name: str, phone: str, speciality: str, experience: str) -> bool:
+        self._logger.log_info("[Facade] Updating trainer with ID: %s", trainer_id)
+
+        session = self._db.open_session()
+        status = False
+
+        try:
+            trainer = session.get(TrainerORM, trainer_id)
+            if not trainer:
+                self._logger.log_warning("[Facade] Trainer with ID: %s not found in db", trainer_id)
+                return status
+
+            trainer.full_name = full_name.strip()
+            trainer.phone = phone.strip()
+            trainer.specialty = speciality.strip()
+            trainer.experience = experience.strip()
+
+            self._logger.log_info("[Facade] Trainer %s successfully updated in session context", trainer_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to update trainer: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+
+
     def create_training(self, name: str, training_type: str, duration_minutes: int) -> bool:
         self._logger.log_info("[Facade] Creating training with name: %s", name)
 

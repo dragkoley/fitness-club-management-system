@@ -195,4 +195,32 @@ class ExecuteScheduleDeletion(Command):
         self._logger.log_info("[Command] Triggering schedule deletion for ID: %s", self._schedule_id)
         return self._manager.delete_schedule(schedule_id=self._schedule_id)
 
+class ExecuteTrainerDeletion(Command):
+    def __init__(self, manager: ClubManager, trainer_id: int) -> None:
+        self._manager = manager
+        self._trainer_id = trainer_id
+        self._logger = AppLogger.get_instance()
 
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering trainer deletion for ID: %s", self._trainer_id)
+        return self._manager.delete_trainer(trainer_id=self._trainer_id)
+
+class ExecuteTrainerUpdate(Command):
+    def __init__(self, manager: ClubManager, trainer_id: int, full_name: str, phone: str, speciality: str, experience: str) -> None:
+        self._manager = manager
+        self._trainer_id = trainer_id
+        self._full_name = full_name
+        self._phone = phone
+        self._speciality = speciality
+        self._experience = experience
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering update for trainer ID: %s", self._trainer_id)
+        return self._manager.update_trainer(
+            trainer_id=self._trainer_id,
+            full_name=self._full_name,
+            phone=self._phone,
+            speciality=self._speciality,
+            experience=self._experience
+        )
