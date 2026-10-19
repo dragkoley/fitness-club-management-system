@@ -319,3 +319,13 @@ class ExecuteLockerDeletion(Command):
     def execute(self) -> bool:
         self._logger.log_info("[Command] Triggering locker deletion for ID: %s", self._locker_id)
         return self._manager.delete_locker(locker_id=self._locker_id)
+
+class ExecuteSubscriptionAudit(Command):
+    def __init__(self, manager: ClubManager) -> None:
+        self._manager = manager
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Initializing subscriptions audit.")
+        result = self._manager.run_subscription_expiration_check()
+        return isinstance(result, list)

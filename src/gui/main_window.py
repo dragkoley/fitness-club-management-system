@@ -4,7 +4,7 @@ from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
     QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit, QInputDialog
 
-from services.commands import ExecuteLockerDeletion
+from src.services.commands import ExecuteLockerDeletion, ExecuteSubscriptionAudit
 from src.services.commands import ExecuteLockerCreation
 from src.database.orm_models import LockerORM, EquipmentORM
 from src.gui.dialogs.change_equipment_state import ChangeEquipmentStateDialog
@@ -66,6 +66,7 @@ class FitnessClubMainWindow(QMainWindow):
         self.btn_manage_sub = QPushButton("Manage subscription")
         self.btn_cancel_sub = QPushButton("Cancel subscription")
         self.btn_refresh_member_tab = QPushButton("Refresh")
+        self.btn_check_expired_sub = QPushButton("Check expired subscriptions")
 
         self.btn_delete_member.setStyleSheet("color: red")
         self.btn_edit_member.setStyleSheet("color: green")
@@ -81,6 +82,8 @@ class FitnessClubMainWindow(QMainWindow):
         action_bar_layout.addSpacing(30)
         action_bar_layout.addWidget(self.btn_manage_sub)
         action_bar_layout.addWidget(self.btn_cancel_sub)
+        action_bar_layout.addSpacing(30)
+        action_bar_layout.addWidget(self.btn_check_expired_sub)
         action_bar_layout.addStretch()
 
         main_layout.addLayout(action_bar_layout)
@@ -113,9 +116,15 @@ class FitnessClubMainWindow(QMainWindow):
         self.edit_search.textChanged.connect(self.on_member_search_text_changed)
         self.btn_edit_member.clicked.connect(self.on_edit_member_button_click)
         self.btn_cancel_sub.clicked.connect(self.on_cancel_sub_button_click)
+        self.btn_check_expired_sub.clicked.connect(self.on_check_subscription_button_click)
 
         self.tabs.addTab(tab, "Members")
         self.load_members_from_db()
+
+    def on_check_subscription_button_click(self) -> None:
+        command = ExecuteSubscriptionAudit(manager=self._manager)
+        command.execute()
+
 
     def on_refresh_members_tab_button_click(self) -> None:
         self.load_members_from_db(target_table=self.member_table)

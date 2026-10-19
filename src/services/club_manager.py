@@ -2,6 +2,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from src.services.notifications import SubscriptionNotification, TerminalNotificationObserver
 from src.database.orm_models import EquipmentORM
 from src.database.connection import DatabaseConnection
 from src.database.orm_models import LockerORM
@@ -653,3 +654,10 @@ class ClubManager:
         finally:
             self._db.close_session(session, status)
         return status
+
+
+    def run_subscription_expiration_check(self) -> list:
+        alert_system = SubscriptionNotification(self._db)
+        terminal_observer = TerminalNotificationObserver()
+        alert_system.attach(terminal_observer)
+        return alert_system.check_expiring_subscriptions(days_threshold=5)
