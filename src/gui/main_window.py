@@ -4,6 +4,8 @@ from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
     QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit
 
+from src.services.commands import ExecuteScheduleDeletion
+from src.services.commands import ExecuteTrainingDeletion
 from src.database.connection import DatabaseConnection
 from src.database.orm_models import MemberORM, TrainerORM, ScheduleORM, VisitORM, TrainingORM
 from src.gui.dialogs.create_schedule import CreateScheduleDialog
@@ -271,17 +273,32 @@ class FitnessClubMainWindow(QMainWindow):
 
     def _init_schedule_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
+
 
         button_layout = QHBoxLayout()
         self.btn_add_training_type = QPushButton("Add Training Type")
+        self.btn_remove_training = QPushButton("Remove Training")
         self.btn_add_to_schedule = QPushButton("Add To Schedule")
+        self.btn_remove_schedule = QPushButton("Remove Schedule")
         self.btn_refresh_schedule = QPushButton("Refresh")
 
-        button_layout.addWidget(self.btn_add_training_type)
-        button_layout.addWidget(self.btn_add_to_schedule)
         button_layout.addWidget(self.btn_refresh_schedule)
-        layout.addLayout(button_layout)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_add_training_type)
+        button_layout.addWidget(self.btn_remove_training)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_add_to_schedule)
+        button_layout.addWidget(self.btn_remove_schedule)
+        button_layout.addStretch()
+        main_layout.addLayout(button_layout)
+
+        self.btn_remove_training.setStyleSheet("color: red")
+        self.btn_remove_schedule.setStyleSheet("color: red")
+        self.btn_add_to_schedule.setStyleSheet("color: green")
+        self.btn_add_training_type.setStyleSheet("color: green")
 
         tables_layout = QHBoxLayout()
         left_side_layout = QVBoxLayout()
@@ -295,6 +312,9 @@ class FitnessClubMainWindow(QMainWindow):
         self.training_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.training_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
+        self.training_table.setAlternatingRowColors(True)
+        self.training_table.verticalHeader().setVisible(False)
+
         self.trainers_schedule_table = QTableWidget()
         self.trainers_schedule_table.setColumnCount(5)
         self.trainers_schedule_table.setHorizontalHeaderLabels(
@@ -302,6 +322,9 @@ class FitnessClubMainWindow(QMainWindow):
         self.trainers_schedule_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.trainers_schedule_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.trainers_schedule_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+
+        self.trainers_schedule_table.verticalHeader().setVisible(False)
+        self.trainers_schedule_table.setAlternatingRowColors(True)
 
         self.schedule_table = QTableWidget()
         self.schedule_table.setColumnCount(5)
@@ -312,23 +335,94 @@ class FitnessClubMainWindow(QMainWindow):
         self.schedule_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.schedule_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
 
+        self.schedule_table.verticalHeader().setVisible(False)
+        self.schedule_table.setAlternatingRowColors(True)
+
         left_side_layout.addWidget(self.training_table)
         left_side_layout.addWidget(self.trainers_schedule_table)
         tables_layout.addLayout(left_side_layout)
         tables_layout.addWidget(self.schedule_table)
 
-        layout.addLayout(tables_layout)
+        main_layout.addLayout(tables_layout)
 
         self.btn_add_to_schedule.clicked.connect(self.on_add_to_schedule_button_click)
         self.btn_add_training_type.clicked.connect(self.on_add_training_type_button_click)
         self.btn_refresh_schedule.clicked.connect(self.on_schedule_refresh_button_click)
+        self.btn_remove_training.clicked.connect(self.on_remove_training_button_click)
+        self.btn_remove_schedule.clicked.connect(self.on_remove_schedule_button_click)
 
         self.tabs.addTab(tab, "Schedule")
         self.on_schedule_refresh_button_click()
 
+    def on_remove_schedule_button_click(self) -> None:
+        current_row = self.schedule_table.currentRow()
+
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Please, select a session from the Schedule table on the right to delete.")
+            return
+
+        schedule_id = int(self.schedule_table.item(current_row, 0).text())
+        session_date = self.schedule_table.item(current_row, 1).text()
+        training_name = self.schedule_table.item(current_row, 2).text()
+        trainer_name = self.schedule_table.item(current_row, 3).text()
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Schedule Deletion",
+            f"Are you sure you want to remove the session '{training_name}' ({session_date}) led by {trainer_name}?\n"
+            "This will automatically cancel all client bookings for this specific session!",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            deletion_command = ExecuteScheduleDeletion(manager=self._manager, schedule_id=schedule_id)
+
+            if deletion_command.execute():
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Session '{training_name}' was successfully removed from the schedule."
+                )
+                self.on_schedule_refresh_button_click()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Failed to delete schedule entry. Database layer error."
+                )
+
+
+    def on_remove_training_button_click(self):
+        current_row = self.training_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Select training in the table first.")
+            return
+
+        training_id = int(self.training_table.item(current_row, 0).text())
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirmation",
+            "Are you sure you want to remove training?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteTrainingDeletion(manager=self._manager, training_id=training_id)
+
+            if command.execute():
+                QMessageBox.information(self, "Success", "Training has been removed.")
+            self.on_schedule_refresh_button_click()
+
+        else:
+            QMessageBox.critical(self, "Warning", "Failed to remove training.")
+
     def on_add_training_type_button_click(self):
         dialog = CreateTrainingDialog(parent=self)
         dialog.exec()
+        self.on_schedule_refresh_button_click()
 
     def on_add_to_schedule_button_click(self):
         training_id = None

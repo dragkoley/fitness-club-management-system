@@ -277,6 +277,57 @@ class ClubManager:
 
         return status
 
+    def delete_training(self, training_id: int) -> bool:
+        self._logger.log_info("[Facade] Deleting training ID: %s", training_id)
+
+        session: Session = self._db.open_session()
+        status = False
+
+        try:
+            training = session.get(TrainingORM, training_id)
+            if not training:
+                self._logger.log_warning("[Facade] Aborted. Training ID: %s not found in db", training_id)
+                return status
+
+            session.delete(training)
+            self._logger.log_info("[Facade] Training %s successfully deleted", training_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete training: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+    def delete_schedule(self, schedule_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to delete schedule slot (ID: %s)", schedule_id)
+
+        session = self._db.open_session()
+        status = False
+
+        try:
+            schedule_entry = session.get(ScheduleORM, schedule_id)
+            if not schedule_entry:
+                self._logger.log_warning("[Facade] Deletion aborted. Schedule ID %s not found in DB", schedule_id)
+                return status
+
+            session.delete(schedule_entry)
+            self._logger.log_info("[Facade] Schedule ID %s successfully deleted from session context", schedule_id)
+            status = True
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete schedule entry due to exception: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+
     def create_schedule(self, training_date: date, trainer_id: int, training_id: int) -> bool:
         self._logger.log_info("[Facade] Creating schedule with training date: %s", training_date)
 

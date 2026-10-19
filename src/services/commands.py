@@ -173,4 +173,26 @@ class ExecuteSubscriptionCancellation(Command):
             member_id=self._member_id
         )
 
+class ExecuteTrainingDeletion(Command):
+    def __init__(self, manager: ClubManager, training_id: int) -> None:
+        self._manager = manager
+        self._training_id = training_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering deletion for training ID: %s", self._training_id)
+        return self._manager.delete_training(
+            training_id=self._training_id
+        )
+
+class ExecuteScheduleDeletion(Command):
+    def __init__(self, manager: ClubManager, schedule_id: int) -> None:
+        self._manager = manager
+        self._schedule_id = schedule_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering schedule deletion for ID: %s", self._schedule_id)
+        return self._manager.delete_schedule(schedule_id=self._schedule_id)
+
 
