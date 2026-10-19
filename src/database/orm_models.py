@@ -151,23 +151,23 @@ class PaymentORM(Base):
 class LockerORM(Base):
     __tablename__ = "lockers"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     number: Mapped[str] = mapped_column(String(100), nullable=False)
     status: Mapped[str] = mapped_column(String(100), nullable=False)
 
     member_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("members.id", ondelete="SET NULL"), nullable=True,
                                                   unique=True)
 
-    member: Mapped[MemberORM | None] = relationship("MemberORM", back_populates="locker")
+    member: Mapped[MemberORM | None] = relationship("MemberORM", back_populates="locker", init=False)
 
 
 class EquipmentORM(Base):
     __tablename__ = "equipments"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     state: Mapped[str] = mapped_column(String(100), nullable=False)
-    date_purchase: Mapped[Date] = mapped_column(Date, nullable=False)
+    date_purchase: Mapped[date] = mapped_column(Date, nullable=False)
 
 
 class ReviewORM(Base):

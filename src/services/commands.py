@@ -224,3 +224,98 @@ class ExecuteTrainerUpdate(Command):
             speciality=self._speciality,
             experience=self._experience
         )
+
+class ExecuteLockerAssignment(Command):
+    def __init__(self, manager: ClubManager, locker_id: int, member_id: int) -> None:
+        self._manager = manager
+        self._locker_id = locker_id
+        self._member_id = member_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info(
+            "[Command] Triggering locker assignment. Locker ID: %s to Member ID: %s",
+            self._locker_id, self._member_id
+        )
+        return self._manager.assign_locker(
+            locker_id=self._locker_id,
+            member_id=self._member_id
+        )
+
+
+class ExecuteLockerRelease(Command):
+    def __init__(self, manager: ClubManager, locker_id: int) -> None:
+        self._manager = manager
+        self._locker_id = locker_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering locker release for Locker ID: %s", self._locker_id)
+        return self._manager.release_locker(locker_id=self._locker_id)
+
+
+class ExecuteEquipmentAdding(Command):
+    def __init__(self, manager: ClubManager, name: str, state: str, date_purchase: date) -> None:
+        self._manager = manager
+        self._name = name
+        self._state = state
+        self._date_purchase = date_purchase
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering equipment creation: %s", self._name)
+        return self._manager.create_equipment(
+            name=self._name,
+            state=self._state,
+            date_purchase=self._date_purchase
+        )
+
+
+class ExecuteEquipmentStateUpdate(Command):
+    def __init__(self, manager: ClubManager, equipment_id: int, new_state: str) -> None:
+        self._manager = manager
+        self._equipment_id = equipment_id
+        self._new_state = new_state
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info(
+            "[Command] Triggering state update for Equipment ID: %s to state: %s",
+            self._equipment_id, self._new_state
+        )
+        return self._manager.update_equipment_state(
+            equipment_id=self._equipment_id,
+            new_state=self._new_state
+        )
+
+
+class ExecuteEquipmentDeletion(Command):
+    def __init__(self, manager: ClubManager, equipment_id: int) -> None:
+        self._manager = manager
+        self._equipment_id = equipment_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering equipment deletion for ID: %s", self._equipment_id)
+        return self._manager.delete_equipment(equipment_id=self._equipment_id)
+
+
+class ExecuteLockerCreation(Command):
+    def __init__(self, manager: ClubManager, locker_number: str) -> None:
+        self._manager = manager
+        self._locker_number = locker_number
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering locker creation with number: %s", self._locker_number)
+        return self._manager.create_locker(locker_number=self._locker_number)
+
+class ExecuteLockerDeletion(Command):
+    def __init__(self, manager: ClubManager, locker_id: int) -> None:
+        self._manager = manager
+        self._locker_id = locker_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Triggering locker deletion for ID: %s", self._locker_id)
+        return self._manager.delete_locker(locker_id=self._locker_id)

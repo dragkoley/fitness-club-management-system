@@ -1,8 +1,10 @@
 from datetime import date
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
+from src.database.orm_models import EquipmentORM
 from src.database.connection import DatabaseConnection
+from src.database.orm_models import LockerORM
 from src.database.orm_models import MemberORM, TrainerORM, TrainingORM, ScheduleORM, VisitORM
 from src.services.factories import MonthlySubscriptionIssuer, YearSubscriptionIssuer, \
     CardPaymentReceipt, CashPaymentReceipt
@@ -191,7 +193,6 @@ class ClubManager:
         temp_sub = issuer.issue(discount)
         return temp_sub.price
 
-
     def cancel_subscription(self, member_id: int) -> bool:
         self._logger.log_info("[Facade] Canceling subscription with ID: %s", member_id)
 
@@ -209,7 +210,8 @@ class ClubManager:
                 return status
 
             member.subscription_id = None
-            self._logger.log_info("[Facade] Subscription for member ID: %s successfully removed in session context", member_id)
+            self._logger.log_info("[Facade] Subscription for member ID: %s successfully removed in session context",
+                                  member_id)
             status = True
 
         except Exception as e:
@@ -220,9 +222,6 @@ class ClubManager:
             self._db.close_session(session, status)
 
         return status
-
-
-
 
     def register_trainer(self, full_name: str, phone: str, speciality: str, experience: str) -> bool:
         self._logger.log_info("[Facade] Registering trainer with full name: %s", full_name)
@@ -276,7 +275,6 @@ class ClubManager:
 
         return status
 
-
     def update_trainer(self, trainer_id: int, full_name: str, phone: str, speciality: str, experience: str) -> bool:
         self._logger.log_info("[Facade] Updating trainer with ID: %s", trainer_id)
 
@@ -305,8 +303,6 @@ class ClubManager:
             self._db.close_session(session, status)
 
         return status
-
-
 
     def create_training(self, name: str, training_type: str, duration_minutes: int) -> bool:
         self._logger.log_info("[Facade] Creating training with name: %s", name)
@@ -383,7 +379,6 @@ class ClubManager:
             self._db.close_session(session, status)
 
         return status
-
 
     def create_schedule(self, training_date: date, trainer_id: int, training_id: int) -> bool:
         self._logger.log_info("[Facade] Creating schedule with training date: %s", training_date)
@@ -489,3 +484,172 @@ class ClubManager:
 
         return status
 
+    @monitor_action
+    def assign_locker(self, locker_id: int, member_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to assign locker ID %s to member ID %s", locker_id, member_id)
+        session = self._db.open_session()
+        status = False
+        try:
+            locker = session.get(LockerORM, locker_id)
+            member = session.get(MemberORM, member_id)
+
+            if not locker or not member:
+                self._logger.log_warning("[Facade] Aborted: Locker or Member not found.")
+                return status
+
+            if locker.status == "Occupied" or locker.member_id is not None:
+                self._logger.log_warning("[Facade] Aborted: Locker ID %s is already occupied.", locker_id)
+                return status
+
+            existing_user_locker = session.query(LockerORM).filter_by(member_id=member_id).first()
+            if existing_user_locker:
+                self._logger.log_warning("[Facade] Aborted: Member ID %s already has an active locker.", member_id)
+                return False
+
+            locker.status = "Occupied"
+            locker.member_id = member_id
+            status = True
+            self._logger.log_info("[Facade] Locker ID %s successfully assigned.", locker_id)
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to assign locker: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+    @monitor_action
+    def release_locker(self, locker_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to release locker ID: %s", locker_id)
+        session = self._db.open_session()
+        status = False
+        try:
+            locker = session.get(LockerORM, locker_id)
+            if not locker:
+                self._logger.log_warning("[Facade] Locker ID %s not found.", locker_id)
+                return False
+
+            locker.status = "Available"
+            locker.member_id = None
+            status = True
+            self._logger.log_info("[Facade] Locker ID %s is now available.", locker_id)
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to release locker: %s", e)
+            status = False
+        finally:
+            self._db.close_session(session, status)
+        return status
+
+    @monitor_action
+    def create_equipment(self, name: str, state: str, date_purchase: date) -> bool:
+        self._logger.log_info("[Facade] Creating equipment: %s", name)
+        session = self._db.open_session()
+        status = False
+        try:
+            new_equipment = EquipmentORM(
+                name=name.strip(),
+                state=state.strip(),
+                date_purchase=date_purchase
+            )
+            session.add(new_equipment)
+            status = True
+            self._logger.log_info("[Facade] Equipment '%s' successfully recorded.", name)
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to create equipment record: %s", e)
+            status = False
+        finally:
+            self._db.close_session(session, status)
+        return status
+
+    @monitor_action
+    def update_equipment_state(self, equipment_id: int, new_state: str) -> bool:
+        self._logger.log_info("[Facade] Changing state for equipment ID %s to '%s'", equipment_id, new_state)
+        session = self._db.open_session()
+        status = False
+        try:
+            equipment = session.get(EquipmentORM, equipment_id)
+            if not equipment:
+                self._logger.log_warning("[Facade] Equipment ID %s not found.", equipment_id)
+                return False
+
+            equipment.state = new_state.strip()
+            status = True
+            self._logger.log_info("[Facade] Equipment ID %s state updated successfully.", equipment_id)
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to update equipment state: %s", e)
+            status = False
+        finally:
+            self._db.close_session(session, status)
+        return status
+
+    @monitor_action
+    def delete_equipment(self, equipment_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to delete/write-off equipment ID: %s", equipment_id)
+        session = self._db.open_session()
+        status = False
+        try:
+            equipment = session.get(EquipmentORM, equipment_id)
+            if not equipment:
+                self._logger.log_warning("[Facade] Equipment ID %s not found.", equipment_id)
+                return False
+
+            session.delete(equipment)
+            status = True
+            self._logger.log_info("[Facade] Equipment ID %s successfully removed.", equipment_id)
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete equipment: %s", e)
+            status = False
+        finally:
+            self._db.close_session(session, status)
+        return status
+
+
+    @monitor_action
+    def create_locker(self, locker_number: str) -> bool:
+        self._logger.log_info("[Facade] Request to create locker number: %s", locker_number)
+        session = self._db.open_session()
+        status = False
+        try:
+            cleaned_number = locker_number.strip()
+
+            existing_locker = session.query(LockerORM).filter_by(number=cleaned_number).first()
+            if existing_locker:
+                self._logger.log_warning("[Facade] Aborted: Locker number %s already exists.", cleaned_number)
+                return False
+
+            new_locker = LockerORM(
+                number=cleaned_number,
+                status="Available",
+                member_id=None
+            )
+            session.add(new_locker)
+            status = True
+            self._logger.log_info("[Facade] Locker %s successfully created.", cleaned_number)
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to create locker: %s", e)
+            status = False
+        finally:
+            self._db.close_session(session, status)
+        return status
+    @monitor_action
+    def delete_locker(self, locker_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to delete locker ID: %s", locker_id)
+        session = self._db.open_session()
+        status = False
+        try:
+            locker = session.get(LockerORM, locker_id)
+            if not locker:
+                self._logger.log_warning("[Facade] Locker ID %s not found in database.", locker_id)
+                return False
+
+            session.delete(locker)
+            status = True
+            self._logger.log_info("[Facade] Locker ID %s successfully deleted.", locker_id)
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete locker record: %s", e)
+            status = False
+        finally:
+            self._db.close_session(session, status)
+        return status

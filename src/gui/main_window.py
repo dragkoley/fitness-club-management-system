@@ -2,8 +2,14 @@ from datetime import datetime
 
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
-    QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit
+    QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit, QInputDialog
 
+from services.commands import ExecuteLockerDeletion
+from src.services.commands import ExecuteLockerCreation
+from src.database.orm_models import LockerORM, EquipmentORM
+from src.gui.dialogs.change_equipment_state import ChangeEquipmentStateDialog
+from src.gui.dialogs.create_equipment import CreateEquipmentDialog
+from src.services.commands import ExecuteLockerAssignment, ExecuteLockerRelease, ExecuteEquipmentDeletion
 from src.services.commands import ExecuteTrainerDeletion
 from src.services.commands import ExecuteScheduleDeletion
 from src.services.commands import ExecuteTrainingDeletion
@@ -522,9 +528,276 @@ class FitnessClubMainWindow(QMainWindow):
 
     def _init_lockers_and_inventory_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.addLayout(layout)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
+
+        button_layout = QHBoxLayout()
+        self.btn_refresh_lockers_and_inventory_tab = QPushButton("Refresh")
+        self.btn_delete_locker = QPushButton("Delete Locker")
+        self.btn_add_locker = QPushButton("Add Locker")
+        self.btn_assign_locker = QPushButton("Assign Locker to Member")
+        self.btn_release_locker = QPushButton("Free Locker")
+        self.btn_add_equipment = QPushButton("Add Equipment")
+        self.btn_change_equipment_state = QPushButton("Change Equipment State")
+        self.btn_delete_equipment = QPushButton("Delete Equipment")
+
+        button_layout.addWidget(self.btn_refresh_lockers_and_inventory_tab)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_add_locker)
+        button_layout.addWidget(self.btn_delete_locker)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_assign_locker)
+        button_layout.addWidget(self.btn_release_locker)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_add_equipment)
+        button_layout.addWidget(self.btn_change_equipment_state)
+        button_layout.addWidget(self.btn_delete_equipment)
+        button_layout.addStretch()
+        main_layout.addLayout(button_layout)
+
+        self.btn_assign_locker.setStyleSheet("color: green")
+        self.btn_delete_locker.setStyleSheet("color: red")
+        self.btn_add_locker.setStyleSheet("color: green")
+        self.btn_release_locker.setStyleSheet("color: red")
+        self.btn_add_equipment.setStyleSheet("color: green")
+        self.btn_change_equipment_state.setStyleSheet("color: orange")
+        self.btn_delete_equipment.setStyleSheet("color: red")
+
+        tables_layout = QHBoxLayout()
+
+        self.locker_table = QTableWidget()
+        self.locker_table.setColumnCount(4)
+        self.locker_table.setHorizontalHeaderLabels(["Locker ID", "Number", "Status", "Occupied By (Member ID)"])
+        self.locker_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.locker_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.locker_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.locker_table.setAlternatingRowColors(True)
+        self.locker_table.verticalHeader().setVisible(False)
+        tables_layout.addWidget(self.locker_table)
+
+        self.eq_table = QTableWidget()
+        self.eq_table.setColumnCount(4)
+        self.eq_table.setHorizontalHeaderLabels(["Asset ID", "Name", "Technical State", "Purchase Date"])
+        self.eq_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.eq_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.eq_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.eq_table.setAlternatingRowColors(True)
+        self.eq_table.verticalHeader().setVisible(False)
+        tables_layout.addWidget(self.eq_table)
+
+        main_layout.addLayout(tables_layout)
+
+        self.btn_refresh_lockers_and_inventory_tab.clicked.connect(self.on_refresh_lockers_and_inventory_button_click)
+        self.btn_assign_locker.clicked.connect(self.on_assign_locker_button_click)
+        self.btn_release_locker.clicked.connect(self.on_release_locker_button_click)
+        self.btn_add_equipment.clicked.connect(self.on_add_equipment_button_click)
+        self.btn_change_equipment_state.clicked.connect(self.on_change_equipment_state_button_click)
+        self.btn_delete_equipment.clicked.connect(self.on_delete_equipment_button_click)
+        self.btn_add_locker.clicked.connect(self.on_add_locker_button_click)
+        self.btn_delete_locker.clicked.connect(self.on_delete_locker_button_click)
+
         self.tabs.addTab(tab, "Lockers and Inventory")
+
+        self.on_refresh_lockers_and_inventory_button_click()
+
+    def on_delete_locker_button_click(self) -> None:
+        current_row = self.locker_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Please, select a locker from the table first.")
+            return
+
+        locker_id = int(self.locker_table.item(current_row, 0).text())
+        locker_number = self.locker_table.item(current_row, 1).text()
+        status = self.locker_table.item(current_row, 2).text()
+
+        warning_extra = ""
+        if status == "Occupied":
+            warning_extra = "\nWARNING: This locker is currently occupied by a member!"
+
+        confirm = QMessageBox.question(
+            self,
+            "Confirm Locker Deletion",
+            f"Are you sure you want to permanently delete locker #{locker_number}?{warning_extra}",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteLockerDeletion(self._manager, locker_id)
+
+            if command.execute():
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Locker #{locker_number} was successfully removed from the database."
+                )
+                self.load_lockers_from_db()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    "Failed to delete locker from the database layer."
+                )
+
+
+    def on_add_locker_button_click(self):
+        locker_number, ok = QInputDialog.getText(
+            self,
+            "New Locker",
+            "Enter Unique Locker Number or Label (e.g. 42A):"
+        )
+
+        if ok and locker_number.strip():
+            command = ExecuteLockerCreation(self._manager, locker_number)
+
+            if command.execute():
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Locker #{locker_number} successfully registered in the system."
+                )
+                self.load_lockers_from_db()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to create locker. A locker with number '{locker_number}' might already exist."
+                )
+
+
+    def load_lockers_from_db(self):
+        session = self._db.open_session()
+        try:
+            lockers = session.query(LockerORM).all()
+            self.locker_table.setRowCount(len(lockers))
+            for row, locker in enumerate(lockers):
+                self.locker_table.setItem(row, 0, QTableWidgetItem(str(locker.id)))
+                self.locker_table.setItem(row, 1, QTableWidgetItem(str(locker.number)))
+                self.locker_table.setItem(row, 2, QTableWidgetItem(str(locker.status)))
+
+                member_text = str(locker.member_id) if locker.member_id else "-"
+                self.locker_table.setItem(row, 3, QTableWidgetItem(member_text))
+            self._logger.log_info("[GUI] Loaded %d club lockers from database" % len(lockers))
+        except Exception as e:
+            self._logger.log_error("[GUI] Failed to load lockers: %s" % e)
+        finally:
+            self._db.close_session(session, status=True)
+
+    def load_equipment_from_db(self):
+        session = self._db.open_session()
+        try:
+            equipment_list = session.query(EquipmentORM).all()
+            self.eq_table.setRowCount(len(equipment_list))
+            for row, eq in enumerate(equipment_list):
+                self.eq_table.setItem(row, 0, QTableWidgetItem(str(eq.id)))
+                self.eq_table.setItem(row, 1, QTableWidgetItem(str(eq.name)))
+                self.eq_table.setItem(row, 2, QTableWidgetItem(str(eq.state)))
+
+                date_str = eq.date_purchase.strftime("%d.%m.%Y") if eq.date_purchase else "-"
+                self.eq_table.setItem(row, 3, QTableWidgetItem(date_str))
+            self._logger.log_info("[GUI] Loaded %d equipment assets from database" % len(equipment_list))
+        except Exception as e:
+            self._logger.log_error("[GUI] Failed to load equipment: %s" % e)
+        finally:
+            self._db.close_session(session, status=True)
+
+
+    def on_assign_locker_button_click(self):
+        current_row = self.locker_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Select a locker to assign.")
+            return
+
+        locker_id = int(self.locker_table.item(current_row, 0).text())
+        status = self.locker_table.item(current_row, 2).text()
+
+        if status == "Occupied":
+            QMessageBox.warning(self, "Error", "This locker is already occupied by another member.")
+            return
+
+        member_id, ok = QInputDialog.getInt(self, "Locker Assignment", "Enter Member ID to assign this locker:")
+        if ok:
+            command = ExecuteLockerAssignment(self._manager, locker_id, member_id)
+            if command.execute():
+                QMessageBox.information(self, "Success", f"Locker assigned successfully to Member ID {member_id}.")
+                self.load_lockers_from_db()
+            else:
+                QMessageBox.critical(self, "Error", "Failed to assign locker. Ensure the member exists and doesn't already have a locker.")
+
+    def on_release_locker_button_click(self):
+        current_row = self.locker_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Select a locker to release.")
+            return
+
+        locker_id = int(self.locker_table.item(current_row, 0).text())
+        status = self.locker_table.item(current_row, 2).text()
+
+        if status == "Available":
+            QMessageBox.warning(self, "Warning", "This locker is already free.")
+            return
+
+        confirm = QMessageBox.question(
+            self, "Confirm Release", f"Are you sure you want to free up locker ID {locker_id}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteLockerRelease(self._manager, locker_id)
+            if command.execute():
+                QMessageBox.information(self, "Success", "Locker is now available.")
+                self.load_lockers_from_db()
+            else:
+                QMessageBox.critical(self, "Error", "Failed to release locker.")
+
+    def on_add_equipment_button_click(self):
+        dialog = CreateEquipmentDialog(parent=self)
+        if dialog.exec():
+            self.load_equipment_from_db()
+
+    def on_change_equipment_state_button_click(self):
+        current_row = self.eq_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Select an equipment to change.")
+            return
+
+        eq_id = int(self.eq_table.item(current_row, 0).text())
+        name = self.eq_table.item(current_row, 1).text()
+        state = self.eq_table.item(current_row, 2).text()
+
+        dialog = ChangeEquipmentStateDialog(eq_id, name, state, parent=self)
+        if dialog.exec():
+            self.load_equipment_from_db()
+
+    def on_delete_equipment_button_click(self):
+        current_row = self.eq_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Warning", "Select an equipment item to decommission.")
+            return
+
+        eq_id = int(self.eq_table.item(current_row, 0).text())
+        name = self.eq_table.item(current_row, 1).text()
+
+        confirm = QMessageBox.question(
+            self, "Confirm Write-off", f"Are you sure you want to decommission and permanently delete '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteEquipmentDeletion(self._manager, eq_id)
+            if command.execute():
+                QMessageBox.information(self, "Success", f"Asset '{name}' was written off successfully.")
+                self.eq_table.removeRow(current_row)
+            else:
+                QMessageBox.critical(self, "Error", "Failed to decommission equipment.")
+
+
+
+    def on_refresh_lockers_and_inventory_button_click(self):
+        self.load_lockers_from_db()
+        self.load_equipment_from_db()
+
 
     def _init_booking_tab(self):
         tab = QWidget()
