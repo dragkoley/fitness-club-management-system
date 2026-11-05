@@ -2,13 +2,14 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from src.services.notifications import SubscriptionNotification, TerminalNotificationObserver
-from src.database.orm_models import EquipmentORM
 from src.database.connection import DatabaseConnection
+from src.database.orm_models import EquipmentORM
 from src.database.orm_models import LockerORM
 from src.database.orm_models import MemberORM, TrainerORM, TrainingORM, ScheduleORM, VisitORM
+from src.database.orm_models import ReviewORM
 from src.services.factories import MonthlySubscriptionIssuer, YearSubscriptionIssuer, \
     CardPaymentReceipt, CashPaymentReceipt
+from src.services.notifications import SubscriptionNotification, TerminalNotificationObserver
 from src.services.payment import CashPayment, CardPayment
 from src.services.pricing import NoDiscount, StudentDiscount, CorporateDiscount
 from src.utils.decorators import monitor_action
@@ -606,7 +607,6 @@ class ClubManager:
             self._db.close_session(session, status)
         return status
 
-
     @monitor_action
     def create_locker(self, locker_number: str) -> bool:
         self._logger.log_info("[Facade] Request to create locker number: %s", locker_number)
@@ -634,6 +634,7 @@ class ClubManager:
         finally:
             self._db.close_session(session, status)
         return status
+
     @monitor_action
     def delete_locker(self, locker_id: int) -> bool:
         self._logger.log_info("[Facade] Request to delete locker ID: %s", locker_id)
@@ -655,9 +656,61 @@ class ClubManager:
             self._db.close_session(session, status)
         return status
 
-
     def run_subscription_expiration_check(self) -> list:
         alert_system = SubscriptionNotification(self._db)
         terminal_observer = TerminalNotificationObserver()
         alert_system.attach(terminal_observer)
         return alert_system.check_expiring_subscriptions(days_threshold=5)
+
+    def create_review(self, member_id: int, mark: int, text: str) -> bool:
+        self._logger.log_info("[Facade] Creating review from member_id: %s with mark %s", member_id, mark)
+        session = self._db.open_session()
+        status: bool = False
+
+        try:
+            member = session.get(MemberORM, member_id)
+            if not member:
+                self._logger.log_warning("[Facade] Aborted: Member ID %s not found", member_id)
+                return status
+
+            new_review = ReviewORM(
+                mark=mark,
+                text=text.strip(),
+                member_id=member_id
+            )
+
+            session.add(new_review)
+            status = True
+            self._logger.log_info("[Facade] Review from member ID: %s saved successfully", member_id)
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to create review: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status
+
+    def delete_review(self, review_id: int) -> bool:
+        self._logger.log_info("[Facade] Request to delete review ID: %s", review_id)
+        session = self._db.open_session()
+        status = False
+        try:
+            review = session.get(ReviewORM, review_id)
+            if not review:
+                self._logger.log_warning("[Facade] Review ID %s not found.", review_id)
+                return False
+
+            session.delete(review)
+            status = True
+            self._logger.log_info("[Facade] Review ID %s deleted successfully.", review_id)
+
+        except Exception as e:
+            self._logger.log_error("[Facade] Failed to delete review: %s", e)
+            status = False
+
+        finally:
+            self._db.close_session(session, status)
+
+        return status

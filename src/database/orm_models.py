@@ -173,9 +173,9 @@ class EquipmentORM(Base):
 class ReviewORM(Base):
     __tablename__ = "reviews"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, init=False)
     mark: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(String, nullable=False)
 
     member_id: Mapped[int] = mapped_column(Integer, ForeignKey("members.id"), nullable=False)
-    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="reviews")
+    member: Mapped[MemberORM] = relationship("MemberORM", back_populates="reviews", init=False)

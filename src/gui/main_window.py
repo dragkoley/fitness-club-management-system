@@ -2,27 +2,30 @@ from datetime import datetime
 
 from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QHBoxLayout, QPushButton, QTableWidget, \
-    QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit, QInputDialog
+    QHeaderView, QTableWidgetItem, QMessageBox, QLineEdit, QInputDialog, QLabel
 
-from src.services.commands import ExecuteLockerDeletion, ExecuteSubscriptionAudit
-from src.services.commands import ExecuteLockerCreation
+from src.database.connection import DatabaseConnection
 from src.database.orm_models import LockerORM, EquipmentORM
+from src.database.orm_models import MemberORM, TrainerORM, ScheduleORM, VisitORM, TrainingORM
+from src.database.orm_models import ReviewORM, PaymentORM
 from src.gui.dialogs.change_equipment_state import ChangeEquipmentStateDialog
 from src.gui.dialogs.create_equipment import CreateEquipmentDialog
-from src.services.commands import ExecuteLockerAssignment, ExecuteLockerRelease, ExecuteEquipmentDeletion
-from src.services.commands import ExecuteTrainerDeletion
-from src.services.commands import ExecuteScheduleDeletion
-from src.services.commands import ExecuteTrainingDeletion
-from src.database.connection import DatabaseConnection
-from src.database.orm_models import MemberORM, TrainerORM, ScheduleORM, VisitORM, TrainingORM
+from src.gui.dialogs.create_review import CreateReviewDialog
 from src.gui.dialogs.create_schedule import CreateScheduleDialog
 from src.gui.dialogs.create_training import CreateTrainingDialog
 from src.gui.dialogs.member_edit import MemberFormDialog
 from src.gui.dialogs.sell_subscription import SellSubscriptionDialog
 from src.gui.dialogs.trainer_edit import TrainerFormDialog
 from src.services.club_manager import ClubManager
+from src.services.commands import ExecuteLockerAssignment, ExecuteLockerRelease, ExecuteEquipmentDeletion
+from src.services.commands import ExecuteLockerCreation
+from src.services.commands import ExecuteLockerDeletion, ExecuteSubscriptionAudit
+from src.services.commands import ExecuteReviewDeletion
+from src.services.commands import ExecuteScheduleDeletion
 from src.services.commands import ExecuteSubscriptionCancellation, ExecuteBookingCancellation
+from src.services.commands import ExecuteTrainerDeletion
 from src.services.commands import ExecuteTrainingBooking, ExecuteMemberDeletion
+from src.services.commands import ExecuteTrainingDeletion
 from src.utils.logger import AppLogger
 
 
@@ -124,7 +127,6 @@ class FitnessClubMainWindow(QMainWindow):
     def on_check_subscription_button_click(self) -> None:
         command = ExecuteSubscriptionAudit(manager=self._manager)
         command.execute()
-
 
     def on_refresh_members_tab_button_click(self) -> None:
         self.load_members_from_db(target_table=self.member_table)
@@ -373,7 +375,6 @@ class FitnessClubMainWindow(QMainWindow):
         main_layout.setContentsMargins(15, 15, 15, 15)
         main_layout.setSpacing(15)
 
-
         button_layout = QHBoxLayout()
         self.btn_add_training_type = QPushButton("Add Training Type")
         self.btn_remove_training = QPushButton("Remove Training")
@@ -454,7 +455,8 @@ class FitnessClubMainWindow(QMainWindow):
         current_row = self.schedule_table.currentRow()
 
         if current_row == -1:
-            QMessageBox.warning(self, "Warning", "Please, select a session from the Schedule table on the right to delete.")
+            QMessageBox.warning(self, "Warning",
+                                "Please, select a session from the Schedule table on the right to delete.")
             return
 
         schedule_id = int(self.schedule_table.item(current_row, 0).text())
@@ -487,7 +489,6 @@ class FitnessClubMainWindow(QMainWindow):
                     "Error",
                     "Failed to delete schedule entry. Database layer error."
                 )
-
 
     def on_remove_training_button_click(self):
         current_row = self.training_table.currentRow()
@@ -649,7 +650,6 @@ class FitnessClubMainWindow(QMainWindow):
                     "Failed to delete locker from the database layer."
                 )
 
-
     def on_add_locker_button_click(self):
         locker_number, ok = QInputDialog.getText(
             self,
@@ -673,7 +673,6 @@ class FitnessClubMainWindow(QMainWindow):
                     "Error",
                     f"Failed to create locker. A locker with number '{locker_number}' might already exist."
                 )
-
 
     def load_lockers_from_db(self):
         session = self._db.open_session()
@@ -711,7 +710,6 @@ class FitnessClubMainWindow(QMainWindow):
         finally:
             self._db.close_session(session, status=True)
 
-
     def on_assign_locker_button_click(self):
         current_row = self.locker_table.currentRow()
         if current_row == -1:
@@ -732,7 +730,8 @@ class FitnessClubMainWindow(QMainWindow):
                 QMessageBox.information(self, "Success", f"Locker assigned successfully to Member ID {member_id}.")
                 self.load_lockers_from_db()
             else:
-                QMessageBox.critical(self, "Error", "Failed to assign locker. Ensure the member exists and doesn't already have a locker.")
+                QMessageBox.critical(self, "Error",
+                                     "Failed to assign locker. Ensure the member exists and doesn't already have a locker.")
 
     def on_release_locker_button_click(self):
         current_row = self.locker_table.currentRow()
@@ -801,12 +800,9 @@ class FitnessClubMainWindow(QMainWindow):
             else:
                 QMessageBox.critical(self, "Error", "Failed to decommission equipment.")
 
-
-
     def on_refresh_lockers_and_inventory_button_click(self):
         self.load_lockers_from_db()
         self.load_equipment_from_db()
-
 
     def _init_booking_tab(self):
         tab = QWidget()
@@ -980,9 +976,155 @@ class FitnessClubMainWindow(QMainWindow):
 
     def _init_analytics_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.addLayout(layout)
+        main_layout = QVBoxLayout(tab)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
+
+        button_layout = QHBoxLayout()
+        self.btn_refresh_analytics = QPushButton("Refresh")
+        self.btn_add_review = QPushButton("Add Review")
+        self.btn_delete_review = QPushButton("Delete Review")
+
+        self.btn_add_review.setStyleSheet("color: green")
+        self.btn_delete_review.setStyleSheet("color: red")
+
+        button_layout.addWidget(self.btn_refresh_analytics)
+        button_layout.addSpacing(30)
+        button_layout.addWidget(self.btn_add_review)
+        button_layout.addWidget(self.btn_delete_review)
+        button_layout.addSpacing(40)
+
+        self.kpi_summary = QLabel("Total Revenue: 0 rub  |  Avg Occupancy: 0.0%  |  Avg Rating: 0.0 / 5.0")
+        self.kpi_summary.setStyleSheet("font-size: 14px; font-weight: bold")
+        button_layout.addWidget(self.kpi_summary)
+        button_layout.addStretch()
+
+        main_layout.addLayout(button_layout)
+
+        tables_layout = QHBoxLayout()
+
+        self.analytics_load_table = QTableWidget()
+        self.analytics_load_table.setColumnCount(6)
+        self.analytics_load_table.setHorizontalHeaderLabels([
+            "Schedule ID", "Date", "Training", "Trainer", "Booked / Max", "Load (%)"
+        ])
+        self.analytics_load_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.analytics_load_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.analytics_load_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.analytics_load_table.setAlternatingRowColors(True)
+        self.analytics_load_table.verticalHeader().setVisible(False)
+        tables_layout.addWidget(self.analytics_load_table)
+
+        self.review_table = QTableWidget()
+        self.review_table.setColumnCount(4)
+        self.review_table.setHorizontalHeaderLabels([
+            "Review ID", "Member", "Rating (1-5)", "Comment"
+        ])
+        self.review_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.review_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.review_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.review_table.setAlternatingRowColors(True)
+        self.review_table.verticalHeader().setVisible(False)
+        tables_layout.addWidget(self.review_table)
+
+        main_layout.addLayout(tables_layout)
+
+        self.btn_refresh_analytics.clicked.connect(self.on_refresh_analytics_button_click)
+        self.btn_add_review.clicked.connect(self.on_add_review_button_click)
+        self.btn_delete_review.clicked.connect(self.on_delete_review_button_click)
+
         self.tabs.addTab(tab, "Club Analytics")
+        self.on_refresh_analytics_button_click()
+
+    def on_refresh_analytics_button_click(self):
+        self.load_analytics_and_reviews_from_db()
+
+    def on_add_review_button_click(self):
+        dialog = CreateReviewDialog(parent=self)
+        if dialog.exec():
+            self.load_analytics_and_reviews_from_db()
+
+    def on_delete_review_button_click(self):
+        current_row = self.review_table.currentRow()
+        if current_row == -1:
+            QMessageBox.warning(self, "Error", "Please, select a review.")
+            return
+
+        review_id = int(self.review_table.item(current_row, 0).text())
+        confirm = QMessageBox.question(
+            self,
+            "Confirmation",
+            f"Are you sure you want to delete review ID {review_id}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            command = ExecuteReviewDeletion(manager=self._manager, review_id=review_id)
+            if command.execute():
+                QMessageBox.information(self, "Success", "Review deleted successfully.")
+                self.load_analytics_and_reviews_from_db()
+
+            else:
+                QMessageBox.critical(self, "Error", "Filed to delete review.")
+
+    def load_analytics_and_reviews_from_db(self):
+        session = self._db.open_session()
+        try:
+            schedule_entries = session.query(ScheduleORM).all()
+            self.analytics_load_table.setRowCount(len(schedule_entries))
+
+            max_slots = 15
+            total_occupancy_sum = 0.0
+
+            for row, entry in enumerate(schedule_entries):
+                booked_slots = session.query(VisitORM).filter_by(
+                    training_id=entry.training_id,
+                    date=entry.date
+                ).count()
+
+                load_percent = (booked_slots / max_slots) * 100.0
+                total_occupancy_sum += load_percent
+
+                self.analytics_load_table.setItem(row, 0, QTableWidgetItem(str(entry.id)))
+                self.analytics_load_table.setItem(row, 1, QTableWidgetItem(entry.date.strftime("%d.%m.%Y")))
+                self.analytics_load_table.setItem(row, 2, QTableWidgetItem(str(entry.training.name)))
+                self.analytics_load_table.setItem(row, 3, QTableWidgetItem(str(entry.trainer.full_name)))
+                self.analytics_load_table.setItem(row, 4, QTableWidgetItem(f"{booked_slots} / {max_slots}"))
+                self.analytics_load_table.setItem(row, 5, QTableWidgetItem(f"{load_percent:.1f}%"))
+
+            avg_occupancy = (total_occupancy_sum / len(schedule_entries)) if schedule_entries else 0.0
+
+            reviews = session.query(ReviewORM).all()
+            self.review_table.setRowCount(len(reviews))
+            total_marks = 0
+
+            for row, rev in enumerate(reviews):
+                total_marks += rev.mark
+                member_name = rev.member.full_name if rev.member else f"ID {rev.member_id}"
+                self.review_table.setItem(row, 0, QTableWidgetItem(str(rev.id)))
+                self.review_table.setItem(row, 1, QTableWidgetItem(str(member_name)))
+                self.review_table.setItem(row, 2, QTableWidgetItem(f"{rev.mark} / 5"))
+                self.review_table.setItem(row, 3, QTableWidgetItem(str(rev.text)))
+
+            avg_rating = (total_marks / len(reviews)) if reviews else 0.0
+
+            payments = session.query(PaymentORM).filter_by(status="Success").all()
+            total_revenue = sum(p.value for p in payments)
+
+            self.kpi_summary.setText(
+                f"Total Revenue: {total_revenue} rub | "
+                f"Avg Occupancy: {avg_occupancy:.1f}% | "
+                f"Avg Rating: {avg_rating:.1f} / 5.0"
+            )
+
+            self._logger.log_info("[GUI] Club analytics and review loaded from database")
+
+        except Exception as e:
+            self._logger.log_error("[GUI] Failed to load analytics data: %s", e)
+
+        finally:
+            self._db.close_session(session, status=True)
 
     def load_members_from_db(self, target_table: QTableWidget | None = None) -> None:
         if target_table is None:

@@ -117,6 +117,7 @@ class ExecuteTrainingBooking(Command):
             schedule_id=self._schedule_id
         )
 
+
 class ExecuteBookingCancellation(Command):
     def __init__(self, manager: ClubManager, visit_id: int) -> None:
         self._manager = manager
@@ -161,6 +162,7 @@ class ExecuteMemberUpdate(Command):
             birth_date=self._birth_date
         )
 
+
 class ExecuteSubscriptionCancellation(Command):
     def __init__(self, manager: ClubManager, member_id: int) -> None:
         self._manager = manager
@@ -172,6 +174,7 @@ class ExecuteSubscriptionCancellation(Command):
         return self._manager.cancel_subscription(
             member_id=self._member_id
         )
+
 
 class ExecuteTrainingDeletion(Command):
     def __init__(self, manager: ClubManager, training_id: int) -> None:
@@ -185,6 +188,7 @@ class ExecuteTrainingDeletion(Command):
             training_id=self._training_id
         )
 
+
 class ExecuteScheduleDeletion(Command):
     def __init__(self, manager: ClubManager, schedule_id: int) -> None:
         self._manager = manager
@@ -194,6 +198,7 @@ class ExecuteScheduleDeletion(Command):
     def execute(self) -> bool:
         self._logger.log_info("[Command] Triggering schedule deletion for ID: %s", self._schedule_id)
         return self._manager.delete_schedule(schedule_id=self._schedule_id)
+
 
 class ExecuteTrainerDeletion(Command):
     def __init__(self, manager: ClubManager, trainer_id: int) -> None:
@@ -205,8 +210,10 @@ class ExecuteTrainerDeletion(Command):
         self._logger.log_info("[Command] Triggering trainer deletion for ID: %s", self._trainer_id)
         return self._manager.delete_trainer(trainer_id=self._trainer_id)
 
+
 class ExecuteTrainerUpdate(Command):
-    def __init__(self, manager: ClubManager, trainer_id: int, full_name: str, phone: str, speciality: str, experience: str) -> None:
+    def __init__(self, manager: ClubManager, trainer_id: int, full_name: str, phone: str, speciality: str,
+                 experience: str) -> None:
         self._manager = manager
         self._trainer_id = trainer_id
         self._full_name = full_name
@@ -224,6 +231,7 @@ class ExecuteTrainerUpdate(Command):
             speciality=self._speciality,
             experience=self._experience
         )
+
 
 class ExecuteLockerAssignment(Command):
     def __init__(self, manager: ClubManager, locker_id: int, member_id: int) -> None:
@@ -310,6 +318,7 @@ class ExecuteLockerCreation(Command):
         self._logger.log_info("[Command] Triggering locker creation with number: %s", self._locker_number)
         return self._manager.create_locker(locker_number=self._locker_number)
 
+
 class ExecuteLockerDeletion(Command):
     def __init__(self, manager: ClubManager, locker_id: int) -> None:
         self._manager = manager
@@ -320,6 +329,7 @@ class ExecuteLockerDeletion(Command):
         self._logger.log_info("[Command] Triggering locker deletion for ID: %s", self._locker_id)
         return self._manager.delete_locker(locker_id=self._locker_id)
 
+
 class ExecuteSubscriptionAudit(Command):
     def __init__(self, manager: ClubManager) -> None:
         self._manager = manager
@@ -329,3 +339,28 @@ class ExecuteSubscriptionAudit(Command):
         self._logger.log_info("[Command] Initializing subscriptions audit.")
         result = self._manager.run_subscription_expiration_check()
         return isinstance(result, list)
+
+
+class ExecuteReviewCreation(Command):
+    def __init__(self, manager: ClubManager, member_id: int, mark: int, text: str) -> None:
+        self._manager = manager
+        self._member_id = member_id
+        self._mark = mark
+        self._text = text
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Creating review for member ID: %s, mark: %s, text: %s", self._member_id,
+                              self._mark, self._text)
+        return self._manager.create_review(member_id=self._member_id, mark=self._mark, text=self._text)
+
+
+class ExecuteReviewDeletion(Command):
+    def __init__(self, manager: ClubManager, review_id: int) -> None:
+        self._manager = manager
+        self._review_id = review_id
+        self._logger = AppLogger.get_instance()
+
+    def execute(self) -> bool:
+        self._logger.log_info("[Command] Deleting review with ID: %s", self._review_id)
+        return self._manager.delete_review(review_id=self._review_id)
