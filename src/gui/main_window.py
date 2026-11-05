@@ -297,7 +297,7 @@ class FitnessClubMainWindow(QMainWindow):
         self.trainer_table.verticalHeader().setVisible(False)
         self.trainer_table.setAlternatingRowColors(True)
 
-        self.btn_refresh_trainers.clicked.connect(self.on_refresh_members_tab_button_click)
+        self.btn_refresh_trainers.clicked.connect(self.load_trainers_from_db)
         self.btn_register_trainer.clicked.connect(self.on_register_trainer_button_click)
         self.btn_remove_trainer.clicked.connect(self.on_remove_trainer_button_click)
         self.btn_edit_trainer.clicked.connect(self.on_edit_trainer_button_click)
